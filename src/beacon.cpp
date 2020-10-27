@@ -49,11 +49,11 @@ TEST(BeaconHdr, typeTest) {
 
 	BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
 	le8_t num = tag->num_;
-	EXPECT_EQ(num, BeaconHdr::SsidParameterSet);
+	EXPECT_EQ(num, BeaconHdr::tagSsidParameterSet);
 	tag = tag->next();
 
 	num = tag->num_;
-	EXPECT_EQ(num, BeaconHdr::SupportedRated);
+	EXPECT_EQ(num, BeaconHdr::tagSupportedRated);
 }
 
 #endif // GTEST
