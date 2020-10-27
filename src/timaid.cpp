@@ -103,10 +103,10 @@ int main(int argc, char* argv[]) {
 					le16_t seq = beaconHdr->seq_;
 					le64_t timestamp = beaconHdr->fixed_.timestamp_;
 					beaconHdr->seq_ = seq + 1;
-					static __useconds_t sleep_timeout = 10000; // 10 msec
+					static __useconds_t sleep_timeout = 980000; // 100 msec
 					//beaconHdr->fixed_.timestamp_ = timestamp + beaconHdr->fixed_.beaconInterval_ * 1000;
 					//beaconHdr->fixed_.timestamp_ = timestamp + beaconHdr->fixed_.beaconInterval_ * 1000 / 10000; // gilgil temp
-					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(sleep); // gilgil temp
+					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(sleep_timeout); // gilgil temp
 					tim->bitmap_ = 0x02;
 					usleep(sleep_timeout);
 					int res = pcap_sendpacket(handle, packet, header->caplen);
