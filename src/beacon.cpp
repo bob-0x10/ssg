@@ -36,14 +36,24 @@ TEST(BeaconHdr, typeTest) {
 	le16_t seq = beaconHdr->seq_;
 	EXPECT_EQ(seq, 3413);
 
-	le64_t timestamp = beaconHdr->fp.timestamp_;
+	BeaconHdr::FixedParameters* fixed = &beaconHdr->fixed_;
+
+	le64_t timestamp = fixed->timestamp_;
 	EXPECT_EQ(timestamp, 3705037138);
 
-	le16_t beaconInterval = beaconHdr->fp.beaconInterval_;
+	le16_t beaconInterval = fixed->beaconInterval_;
 	EXPECT_EQ(beaconInterval, 100); // 100 msec
 
-	le16_t capabilities = beaconHdr->fp.capabilities_;
+	le16_t capabilities = fixed->capabilities_;
 	EXPECT_EQ(capabilities, 0x0C11);
+
+	BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
+	le8_t num = tag->num_;
+	EXPECT_EQ(num, BeaconHdr::SsidParameterSet);
+	tag = tag->next();
+
+	num = tag->num_;
+	EXPECT_EQ(num, BeaconHdr::SupportedRated);
 }
 
 #endif // GTEST

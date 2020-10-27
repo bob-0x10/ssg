@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "radiotap.h"
 #include "beacon.h"
+#include "gtrace.h"
 
 void usage() {
 	printf("syntax: timaid <interface>\n");
@@ -13,6 +14,9 @@ int main(int argc, char* argv[]) {
 		usage();
 		return -1;
 	}
+
+	gtrace_close();
+	gtrace_open(nullptr, 0, true, nullptr);
 
 	char* dev = argv[1];
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -32,10 +36,10 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 		RadiotapHdr* radiotapHdr = PRadiotapHdr(packet);
-		BeaconHdr* beacon = PBeaconHdr(packet + radiotapHdr->len);
+		BeaconHdr* beacon = PBeaconHdr(packet + radiotapHdr->len_);
 		if (beacon->typeSubtype() != Dot11Hdr::Beacon) continue;
 
-		printf("%u bytes captured\n", header->caplen);
+		GTRACE("radio len=%d caplen=%u\n", radiotapHdr->len_, header->caplen);
 	}
 
 	pcap_close(handle);

@@ -14,15 +14,27 @@ struct BeaconHdr : Dot11Hdr {
 		le64_t timestamp_;
 		le16_t beaconInterval_;
 		le16_t capabilities_;
-	} fp;
+	} fixed_;
 
 	struct TaggedParameters {
 		struct Tag {
-			uint8_t number_;
-			uint8_t length_;
-			char value_[];
-		};
-	} tp;
+			le8_t num_;
+			le8_t len_;
+			uint8_t value_[];
+			Tag* next() {
+				char* res = (char*)this;
+				res += sizeof(Tag) + this->len_;
+				return PTag(res);
+			}
+		} tag_;
+		typedef Tag *PTag;
+	} tagged_;
+
+	enum: le8_t {
+		SsidParameterSet = 0,
+		SupportedRated = 1,
+		TrafficIndicationMap = 5
+	};
 };
 typedef BeaconHdr *PBeaconHdr;
 
