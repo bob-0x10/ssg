@@ -4,24 +4,24 @@
 
 #pragma pack(push, 1)
 struct Dot11Hdr {
-	uint8_t typeSubtype_;
-	uint8_t control_;
+	//uint8_t typeSubtype_;
+	le8_t ver_:2;
+	le8_t type_:2;
+	le8_t subtype_:4;
+	le8_t flags_;
 	le16_t duration_;
 
-	uint8_t version() { return typeSubtype_ & 0x03; }
-	uint8_t type() { return typeSubtype_ & 0x0C; }
-	uint8_t subtype() { return typeSubtype_ & 0xF0;}
-	uint8_t typeSubtype() { return (type() << 4) | subtype(); }
+	le8_t typeSubtype() { return type_ << 4 | subtype_; }
 
 	// type
-	enum: uint8_t {
+	enum: le8_t {
 		Manage = 0,
 		Control = 1,
 		Data = 2
 	};
 
 	// typeSubtype
-	enum: uint8_t {
+	enum: le8_t {
 		Beacon = 0x08,
 		Acknowledgement = 0x1d
 	};

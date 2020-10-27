@@ -4,10 +4,10 @@
 
 #pragma pack(push, 1)
 struct RadiotapHdr {
-	uint8_t version;
-	uint8_t pad;
-	le16_t len;
-	uint32_t present;
+	le8_t ver_;
+	le8_t pad_;
+	le16_t len_;
+	le32_t present_;
 };
 typedef RadiotapHdr *PRadiotapHdr;
 #pragma pack(pop)
