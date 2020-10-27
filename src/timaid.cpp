@@ -1,5 +1,7 @@
 #include <pcap.h>
 #include <stdio.h>
+#include "radiotap.h"
+#include "beacon.h"
 
 void usage() {
 	printf("syntax: timaid <interface>\n");
@@ -29,6 +31,10 @@ int main(int argc, char* argv[]) {
 			printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
 			break;
 		}
+		RadiotapHdr* radiotapHdr = PRadiotapHdr(packet);
+		BeaconHdr* beacon = PBeaconHdr(packet + radiotapHdr->len);
+		if (beacon->typeSubtype() != Dot11Hdr::Beacon) continue;
+
 		printf("%u bytes captured\n", header->caplen);
 	}
 
