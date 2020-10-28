@@ -65,6 +65,10 @@ int main(int argc, char* argv[]) {
 			fprintf(stderr, "pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
 			break;
 		}
+		if (header->caplen < sizeof(RadiotapHdr)) {
+			GTRACE("too small size %u\n", header->caplen);
+			continue;
+		}
 		RadiotapHdr* radiotapHdr = PRadiotapHdr(packet);
 		BeaconHdr* beaconHdr = PBeaconHdr(packet + radiotapHdr->len_);
 		if (beaconHdr->typeSubtype() != Dot11Hdr::Beacon) continue;
@@ -109,7 +113,7 @@ int main(int argc, char* argv[]) {
 					usleep(timstampIncment - 10000); // -10 msec
 					for (int i = 0; i < 100; i++) {
 						beaconHdr->fixed_.timestamp_ = timestamp + 1000; // gilgil temp
-						int res = pcap_sendpacket(handle, packet, header->caplen -1);
+						int res = pcap_sendpacket(handle, packet, header->caplen);
 						if (res != 0) {
 							fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
 						}
