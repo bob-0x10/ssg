@@ -65,17 +65,21 @@ int main(int argc, char* argv[]) {
 			fprintf(stderr, "pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
 			break;
 		}
-		if (header->caplen < sizeof(RadiotapHdr)) {
-			GTRACE("too small size %u\n", header->caplen);
+		u_char* end = const_cast<u_char*>(packet);
+		end += header->caplen;
+		RadiotapHdr* radiotapHdr = PRadiotapHdr(packet);
+		le16_t len = radiotapHdr->len_;
+		if ((void*)radiotapHdr >= (void*)end) {
+			GTRACE("invalid pointer %p %p\n", (void*)radiotapHdr, (void*)end);
 			continue;
 		}
-		RadiotapHdr* radiotapHdr = PRadiotapHdr(packet);
+		if (len > 100) {
+			GTRACE("too big radiotap header len %u %p %p\n", len, (void*)radiotapHdr, (void*)end);
+		}
 		BeaconHdr* beaconHdr = PBeaconHdr(packet + radiotapHdr->len_);
 		if (beaconHdr->typeSubtype() != Dot11Hdr::Beacon) continue;
 
 		//GTRACE("radio len=%d caplen=%u\n", radiotapHdr->len_, header->caplen);
-		u_char* end = const_cast<u_char*>(packet);
-		end += header->caplen;
 
 		BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
 		while ((void*)tag < (void*)end) {
