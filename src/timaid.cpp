@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 
 	char* dev = argv[1];
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, -1, errbuf);
+	pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
 		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", dev, errbuf);
 		return -1;
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
 				BeaconHdr::TrafficIndicationMap* tim = BeaconHdr::PTrafficIndicationMap(tag);
 
 				le8_t bitmap = tim->bitmap_;
-				if (bitmap != 0) {
+				if (bitmap == 0xFF) {
 					GTRACE("bitmap=0x%X\n", tim->bitmap_);
 					break;
 				}
@@ -103,15 +103,17 @@ int main(int argc, char* argv[]) {
 					le16_t seq = beaconHdr->seq_;
 					le64_t timestamp = beaconHdr->fixed_.timestamp_;
 					beaconHdr->seq_ = seq + 1;
-					static __useconds_t sleep_timeout = 980000; // 100 msec
-					//beaconHdr->fixed_.timestamp_ = timestamp + beaconHdr->fixed_.beaconInterval_ * 1000;
-					//beaconHdr->fixed_.timestamp_ = timestamp + beaconHdr->fixed_.beaconInterval_ * 1000 / 10000; // gilgil temp
-					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(sleep_timeout); // gilgil temp
-					tim->bitmap_ = 0x02;
-					usleep(sleep_timeout);
-					int res = pcap_sendpacket(handle, packet, header->caplen);
-					if (res != 0) {
-						fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
+					static __useconds_t timstampIncment = 100000; // 100 msec
+					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment); // gilgil temp
+					tim->bitmap_ = 0xFF;
+					usleep(timstampIncment - 5000); // -5 msec
+					for (int i = 0; i < 100; i++) {
+						beaconHdr->fixed_.timestamp_ = timestamp + 1000; // gilgil temp
+						int res = pcap_sendpacket(handle, packet, header->caplen);
+						if (res != 0) {
+							fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
+						}
+						usleep(100); // 0.1 msec
 					}
 					it->second = now;
 				}
