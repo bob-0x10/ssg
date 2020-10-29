@@ -17,8 +17,8 @@ typedef std::map<Mac, Clock> AttackMap;
 AttackMap attackMap;
 
 void usage() {
-	printf("syntax: timaid <interface>\n");
-	printf("sample: timaid mon0\n");
+	printf("syntax: timbitmap <interface>\n");
+	printf("sample: timbitmap mon0\n");
 }
 
 int main(int argc, char* argv[]) {
