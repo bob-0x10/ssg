@@ -6,4 +6,4 @@ fi
 INTERFACE="$1"
 AP_MAC="$2"
 
-tshark -i $INTERFACE -T fields -e frame.time_relative -e frame.time_delta_displayed -e radiotap.length -e wlan.seq -e wlan.fixed.timestamp -e wlan.tim.partial_virtual_bitmap -Y "wlan.addr==$AP_MAC && wlan.fc.type_subtype==8"
+sudo tshark -i $INTERFACE -T fields -e frame.time_relative -e frame.time_delta_displayed -e radiotap.length -e wlan.seq -e wlan.fixed.timestamp -e wlan.tim.partial_virtual_bitmap -Y "wlan.addr==$AP_MAC && wlan.fc.type_subtype==8"
