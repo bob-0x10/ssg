@@ -6,6 +6,7 @@ LIBS += -lpcap -pthread
 
 HEADERS += \
 	beacon.h \
+	beaconhdrinfo.h \
 	common.h \
 	dot11.h \
 	gtrace.h \
@@ -14,6 +15,7 @@ HEADERS += \
 
 SOURCES += \
 	beacon.cpp \
+	beaconhdrinfo.cpp \
 	dot11.cpp \
 	gtrace.cpp \
 	mac.cpp \

@@ -7,8 +7,7 @@
 
 #include <unistd.h>
 #include <pcap.h>
-#include "radiotap.h"
-#include "beacon.h"
+#include "beaconhdrinfo.h"
 #include "gtrace.h"
 
 typedef std::chrono::high_resolution_clock::time_point Clock;
@@ -39,34 +38,43 @@ void sendThreadProc(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
 	GTRACE("interval=%ld\n", interval.count());
 
 	Diff diff;
+	//std::this_thread::sleep_for(interval);
 	Clock last = Timer::now();
-	std::this_thread::sleep_for(interval);
 	while (true) {
 		beaconHdr->seq_ += 1;
 		//GTRACE("seq=%u\n", beaconHdr->seq_);
-		int res = pcap_sendpacket(handle, (const u_char*)p, writeLen);
-		if (res != 0) {
-			GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
-			exit(-1);
+		for (int i = 0; i < 1; i++) {
+			int res = pcap_sendpacket(handle, (const u_char*)p, writeLen);
+			if (res != 0) {
+				GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
+				exit(-1);
+			}
+			//static bool first=true;
+			//if (first) {
+			//	usleep(4000000);
+			//	first = false;
+			//}
 		}
 		Clock now = Timer::now();
 		diff = now - last;
-		Diff sleepTime = interval * 2 - diff;
+		Diff sleepTime = interval - diff;
 		if (adjust != Diff(0)) {
 			sleepTime += adjust;
 			GTRACE("diff=%ld adjust=%ld sleepTime=%ld\n", diff.count(), adjust.count(), sleepTime.count());
 			now += adjust;
 			adjust = Diff(0);
 		}
+		//GTRACE("diff=%ld sleepTime=%ld\n", diff.count(), sleepTime.count());
 		std::this_thread::sleep_for(sleepTime);
-		last = now;
+		//usleep(sleepTime.count() / 1000);
+		last = Timer::now();
 	}
 	GTRACE("sendThread end\n");
 }
 
 void scanThreadProc(std::string interface, Mac apMac) {
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, -1, errbuf);
+	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
 		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
 		return;
@@ -87,46 +95,21 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			fprintf(stderr, "pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
 			break;
 		}
-		u_char* end = const_cast<u_char*>(packet);
-		end += header->caplen;
-		RadiotapHdr* radiotapHdr = PRadiotapHdr(packet);
+
+		BeaconHdrInfo bhi;
+		if (!bhi.parse(pchar(packet), header->caplen)) continue;
+		RadiotapHdr* radiotapHdr = bhi.radiotapHdr_;
 		le16_t len = radiotapHdr->len_;
-		if ((void*)radiotapHdr >= (void*)end) {
-			GTRACE("invalid pointer %p %p\n", (void*)radiotapHdr, (void*)end);
-			continue;
-		}
-		if (len != sizeof(RadiotapHdr) && len != 18 && len != 13) {
-			GTRACE("invalid radiotap header len %u %p %p\n", len, (void*)radiotapHdr, (void*)end);
-			continue;
-		}
 		if (len == sizeof(RadiotapHdr) || len == 13) continue;
 
-		Dot11Hdr* dot11Hdr = PDot11Hdr(packet + radiotapHdr->len_);
-		if (dot11Hdr->typeSubtype() != Dot11Hdr::Beacon) continue;
-
-		BeaconHdr* beaconHdr = PBeaconHdr(dot11Hdr);
-		Mac bssid = beaconHdr->bssid();
-		if (!(bssid == apMac)) continue;
+		BeaconHdr* beaconHdr = bhi.beaconHdr_;
 
 		if (status == Finding) {
-			BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
-			bool bitmapChanged = false;
-			while (true) {
-				if ((void*)tag >= (void*)end) {
-					GTRACE("tag=%p end=%p\n", tag, end);
-					exit(-1);
-
-				}
-				if (tag->num_ == BeaconHdr::tagTrafficIndicationMap) {
-					BeaconHdr::TrafficIndicationMap* tim = BeaconHdr::PTrafficIndicationMap(tag);
-					tim->control_ |= 1; // multicast
-					tim->bitmap_ = 0xFF;
-					bitmapChanged = true;
-					break;
-				}
-				tag = tag->next();
-			}
-			if (!bitmapChanged) continue;
+			Mac bssid = beaconHdr->bssid();
+			if (!(bssid == apMac)) continue;
+			if (bhi.tim_->control_ != 0 || bhi.tim_->bitmap_ != 0) continue;
+			bhi.tim_->control_ = 1; // multicast
+			bhi.tim_->bitmap_ = 0xFF;
 
 			SendStruct ss;
 			char* p = (char*)&ss;
