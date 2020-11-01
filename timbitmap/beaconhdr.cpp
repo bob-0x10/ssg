@@ -1,4 +1,4 @@
-#include "beacon.h"
+#include "beaconhdr.h"
 
 #ifdef GTEST
 #include <gtest/gtest.h>

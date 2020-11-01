@@ -1,7 +1,7 @@
 #pragma once
 
-#include "radiotap.h"
-#include "beacon.h"
+#include "radiotaphdr.h"
+#include "beaconhdr.h"
 
 struct BeaconHdrInfo {
 	RadiotapHdr* radiotapHdr_;

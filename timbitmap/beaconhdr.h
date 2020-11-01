@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dot11.h"
+#include "dot11hdr.h"
 
 #pragma pack(push, 1)
 struct BeaconHdr : Dot11Hdr {
@@ -51,5 +51,4 @@ struct BeaconHdr : Dot11Hdr {
 	typedef TrafficIndicationMap *PTrafficIndicationMap;
 };
 typedef BeaconHdr *PBeaconHdr;
-
 #pragma pack(pop)

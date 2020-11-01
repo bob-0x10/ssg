@@ -1,4 +1,4 @@
-#include "dot11.h"
+#include "dot11hdr.h"
 
 #ifdef GTEST
 #include <gtest/gtest.h>
