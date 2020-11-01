@@ -33,6 +33,7 @@ void sendThreadProc(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
 	GTRACE("sendThread beg handle=%p\n", handle);
 	const u_char* p = (const u_char*)&ss;
 	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
+	//Diff interval = Diff(beaconHdr->fixed_.beaconInterval_ * 1024 * 1000);
 	Diff interval = Diff(beaconHdr->fixed_.beaconInterval_ * 1024 * 1000);
 	//interval = Diff(5000000000); // gilgil temp 2020.11.01
 	GTRACE("interval=%ld\n", interval.count());
