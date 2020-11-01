@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 #include <chrono>
+#include <iostream>
 #include <map>
 #include <thread>
 
@@ -27,11 +28,14 @@ void usage() {
 	printf("sample: timbitmap mon0 00:00:00:11:11:11\n");
 }
 
-void sendThread(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
+std::thread* sendThread_{nullptr};
+Diff adjust{0};
+void sendThreadProc(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
 	GTRACE("sendThread beg handle=%p\n", handle);
 	const u_char* p = (const u_char*)&ss;
 	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
 	Diff interval = Diff(beaconHdr->fixed_.beaconInterval_ * 1024 * 1000);
+	//interval = Diff(5000000000); // gilgil temp 2020.11.01
 	GTRACE("interval=%ld\n", interval.count());
 
 	Diff diff;
@@ -48,30 +52,24 @@ void sendThread(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
 		Clock now = Timer::now();
 		diff = now - last;
 		Diff sleepTime = interval * 2 - diff;
-		GTRACE("diff=%ld sleepTime=%ld\n", diff.count(), sleepTime.count());
+		if (adjust != Diff(0)) {
+			sleepTime += adjust;
+			GTRACE("diff=%ld adjust=%ld sleepTime=%ld\n", diff.count(), adjust.count(), sleepTime.count());
+			now += adjust;
+			adjust = Diff(0);
+		}
 		std::this_thread::sleep_for(sleepTime);
 		last = now;
 	}
 	GTRACE("sendThread end\n");
 }
 
-int main(int argc, char* argv[]) {
-	if (argc != 3) {
-		usage();
-		return -1;
-	}
-
-	//gtrace_close();
-	//gtrace_open(nullptr, 0, true, nullptr);
-
-	std::string interface= argv[1];
-	Mac apMac = Mac(argv[2]);
-
+void scanThreadProc(std::string interface, Mac apMac) {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, -1, errbuf);
 	if (handle == nullptr) {
 		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
-		return -1;
+		return;
 	}
 
 	typedef enum {
@@ -141,11 +139,31 @@ int main(int argc, char* argv[]) {
 			BeaconHdr* sendBeaconHdr = PBeaconHdr(p + sendRadiotapHdr->len_);
 			uint32_t writeLen = header->caplen - (radiotapHdr->len_ - sizeof(RadiotapHdr));
 			memcpy(sendBeaconHdr, beaconHdr, writeLen);
-			std::thread* t = new std::thread(sendThread, handle, ss, writeLen); t->detach();
-			status = Adjusting;
+			sendThread_ = new std::thread(sendThreadProc, handle, ss, writeLen); sendThread_->detach();
 			//sendThread(handle, ss, writeLen);
+			status = Adjusting;
 		} else {
 		}
 	}
 	pcap_close(handle);
+}
+
+int main(int argc, char* argv[]) {
+	if (argc != 3) {
+		usage();
+		return -1;
+	}
+	std::string interface = std::string(argv[1]);
+	Mac apMac = Mac(argv[2]);
+	std::thread st(scanThreadProc, interface, apMac);
+
+
+	while (true) {
+		double d;
+		std::cin >> d;
+		int64_t i = d * 1000000000;
+		adjust = Diff(i);
+	}
+
+	st.join();
 }
