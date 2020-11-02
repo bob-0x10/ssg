@@ -20,9 +20,10 @@ struct Key {
 };
 
 struct Val {
+	le16_t len_;
 	timeval tv_;
 	le8_t bitmap_;
-	Val(timeval tv,	le8_t bitmap) : tv_(tv), bitmap_(bitmap) {}
+	Val(le16_t len, timeval tv, le8_t bitmap) : len_(len), tv_(tv), bitmap_(bitmap) {}
 };
 
 typedef std::map<Key, Val> ApMap;

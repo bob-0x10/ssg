@@ -48,19 +48,18 @@ void checkThreadProc(std::string interface, Mac apMac) {
 
 		Key key(beaconHdr->seq_);
 		// GTRACE("seq=%u\n\n", beaconHdr->seq_); // gilgil temp
-		Val val(header->ts, bhi.tim_->bitmap_);
+		Val val_new(radiotapHdr->len_, header->ts, bhi.tim_->bitmap_);
 		ApMap::iterator it = apMap.find(key);
 		if (it == apMap.end()) {
-			apMap.insert(std::make_pair(key, val));
+			apMap.insert(std::make_pair(key, val_new));
 		} else{
-			Val val2 = it->second;
-			if (val.bitmap_ != val2.bitmap_) {
-				if (val.bitmap_ != 0) {
-					int64_t diff = getDiffTime(val.tv_, val2.tv_);
-					printf("%u %u %ld %u %u\n", radiotapHdr->len_, key.seq_, diff, val.bitmap_, val2.bitmap_);
+			Val val_old = it->second;
+			if (val_old.bitmap_ != val_new.bitmap_) {
+				int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
+				if (val_old.bitmap_ ==0xFF) { // old-my new-real
+					fprintf(stderr, "fast seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				} else {
-					int64_t diff = getDiffTime(val2.tv_, val.tv_);
-					printf("%u %u %ld %u %u\n", radiotapHdr->len_, key.seq_, diff, val2.bitmap_, val.bitmap_);
+					fprintf(stderr, "slow seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				}
 			}
 			apMap.erase(it);
