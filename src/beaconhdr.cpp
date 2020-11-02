@@ -3,7 +3,7 @@
 #ifdef GTEST
 #include <gtest/gtest.h>
 
-#include "radiotap.h"
+#include "radiotaphdr.h"
 
 TEST(BeaconHdr, typeTest) {
 	uint8_t packet[] = { // dot11-sample.pcap frame.number==1

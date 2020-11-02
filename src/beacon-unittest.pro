@@ -2,7 +2,9 @@ TEMPLATE = app
 CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
-LIBS += -lpcap -pthread
+DEFINES += GTEST
+
+LIBS += -lgtest_main -lgtest -pthread
 
 HEADERS += \
 	beaconhdr.h \
@@ -19,5 +21,4 @@ SOURCES += \
 	dot11.cpp \
 	gtrace.cpp \
 	mac.cpp \
-	radiotaphdr.cpp \
-	timbitmap.cpp
+	radiotaphdr.cpp
