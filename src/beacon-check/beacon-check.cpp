@@ -57,8 +57,15 @@ void checkThreadProc(std::string interface, Mac apMac) {
 			if (val_old.bitmap_ != val_new.bitmap_) {
 				int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
 				if (val_old.bitmap_ ==0xFF) { // old-my new-real
+					//
+					// fast
+					//
 					fprintf(stderr, "fast seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				} else {
+					//
+					// slow
+					//
+					diff = -diff;
 					fprintf(stderr, "slow seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				}
 			}
