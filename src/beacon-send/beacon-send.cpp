@@ -126,7 +126,7 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			//sendThread(handle, ss, writeLen);
 			status = Adjusting;
 		} else {
-			continue; // gilgil temp
+			// continue; // gilgil temp
 			// GTRACE("radiotap len=%u\n", radiotapHdr->len_); // gilgil temp
 			// if (len == 13) continue;
 
@@ -146,15 +146,13 @@ void scanThreadProc(std::string interface, Mac apMac) {
 						//
 						// fast
 						//
-						diff *= 1000;
-						adjust = Diff(diff);
+						adjust = Diff(diff * 1000);
 						fprintf(stderr, "fast seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 					} else {
 						//
 						// slow
 						//
-						diff *= -1000;
-						adjust = Diff(diff);
+						adjust = -Diff(diff * 1000);
 						fprintf(stderr, "slow seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 					}
 				}
