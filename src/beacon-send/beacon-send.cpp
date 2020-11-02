@@ -30,8 +30,15 @@ ApMap apMap;
 
 std::thread* sendThread_{nullptr};
 Diff adjust{0};
-void sendThreadProc(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
-	GTRACE("sendThread beg handle=%p\n", handle);
+void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
+	GTRACE("sendThread beg\n");
+	char errbuf[PCAP_ERRBUF_SIZE];
+	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
+	if (handle == nullptr) {
+		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
+		return;
+	}
+
 	const u_char* p = (const u_char*)&ss;
 	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
 	//Diff interval = Diff(beaconHdr->fixed_.beaconInterval_ * 1024 * 1000);
@@ -122,13 +129,13 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			BeaconHdr* sendBeaconHdr = PBeaconHdr(p + sendRadiotapHdr->len_);
 			uint32_t writeLen = header->caplen - (radiotapHdr->len_ - sizeof(RadiotapHdr));
 			memcpy(sendBeaconHdr, beaconHdr, writeLen);
-			sendThread_ = new std::thread(sendThreadProc, handle, ss, writeLen); sendThread_->detach();
+			sendThread_ = new std::thread(sendThreadProc, interface, ss, writeLen); sendThread_->detach();
 			//sendThread(handle, ss, writeLen);
 			status = Adjusting;
 		} else {
 			// continue; // gilgil temp
 			// GTRACE("radiotap len=%u\n", radiotapHdr->len_); // gilgil temp
-			// if (len == 13) continue;
+			if (len == 13) continue;
 
 			if (beaconHdr->bssid() != apMac) continue;
 
