@@ -60,12 +60,12 @@ void checkThreadProc(std::string interface, Mac apMac) {
 					//
 					// fast
 					//
+					diff = -diff;
 					fprintf(stderr, "fast seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				} else {
 					//
 					// slow
 					//
-					diff = -diff;
 					fprintf(stderr, "slow seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				}
 			}
