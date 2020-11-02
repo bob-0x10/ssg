@@ -32,3 +32,9 @@ bool BeaconHdrInfo::parse(char* packet, uint32_t size) {
 	}
 	return false;
 }
+
+int64_t getDiffTime(timeval tv1, timeval tv2) {
+	int64_t res = (tv1.tv_sec - tv2.tv_sec) * 1000000;
+	res += (tv1.tv_usec - tv2.tv_usec);
+	return res;
+}

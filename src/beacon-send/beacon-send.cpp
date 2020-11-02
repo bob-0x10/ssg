@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <chrono>
 #include <iostream>
-#include <map>
 #include <thread>
 
 #include <unistd.h>
@@ -26,6 +25,8 @@ void usage() {
 	printf("syntax: beacon-send <interface> <ap-mac>\n");
 	printf("sample: beacon-send mon0 00:00:00:11:11:11\n");
 }
+
+ApMap apMap;
 
 std::thread* sendThread_{nullptr};
 Diff adjust{0};
@@ -61,7 +62,7 @@ void sendThreadProc(pcap_t* handle, SendStruct ss, uint32_t writeLen) {
 		Diff sleepTime = interval - diff;
 		if (adjust != Diff(0)) {
 			sleepTime += adjust;
-			GTRACE("diff=%ld adjust=%ld sleepTime=%ld\n", diff.count(), adjust.count(), sleepTime.count());
+			//GTRACE("diff=%ld adjust=%ld sleepTime=%ld\n", diff.count(), adjust.count(), sleepTime.count());
 			now += adjust;
 			adjust = Diff(0);
 		}
@@ -101,13 +102,11 @@ void scanThreadProc(std::string interface, Mac apMac) {
 		if (!bhi.parse(pchar(packet), header->caplen)) continue;
 		RadiotapHdr* radiotapHdr = bhi.radiotapHdr_;
 		le16_t len = radiotapHdr->len_;
-		if (len == sizeof(RadiotapHdr) || len == 13) continue;
-
 		BeaconHdr* beaconHdr = bhi.beaconHdr_;
 
 		if (status == Finding) {
-			Mac bssid = beaconHdr->bssid();
-			if (bssid != apMac) continue;
+			if (len == sizeof(RadiotapHdr) || len == 13) continue;
+			if (beaconHdr->bssid() != apMac) continue;
 			if (bhi.tim_->control_ != 0 || bhi.tim_->bitmap_ != 0) continue;
 			bhi.tim_->control_ = 1; // multicast
 			bhi.tim_->bitmap_ = 0xFF;
@@ -127,6 +126,32 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			//sendThread(handle, ss, writeLen);
 			status = Adjusting;
 		} else {
+			//continue; // gilgil temp
+			// GTRACE("radiotap len=%u\n", radiotapHdr->len_); // gilgil temp
+			// if (len == 13) continue;
+
+			if (beaconHdr->bssid() != apMac) continue;
+
+			Key key(beaconHdr->seq_);
+			// GTRACE("seq=%u\n\n", beaconHdr->seq_); // gilgil temp
+			Val val_new(header->ts, bhi.tim_->bitmap_);
+			ApMap::iterator it = apMap.find(key);
+			if (it == apMap.end()) {
+				apMap.insert(std::make_pair(key, val_new));
+			} else{
+				Val val_old = it->second;
+				if (val_old.bitmap_ != val_new.bitmap_) {
+					int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
+					if (val_old.bitmap_ ==0xFF) { // old-my new-real
+						adjust = Diff(diff * 1000);
+						GTRACE("fast %u %ld %u %u %ld\n", key.seq_, diff, val_old.bitmap_, val_new.bitmap_, diff);
+					} else {
+						adjust = -Diff(diff * 1000);
+						GTRACE("slow %u %ld %u %u %ld\n", key.seq_, diff, val_old.bitmap_, val_new.bitmap_, diff);
+					}
+				}
+				apMap.clear();
+			}
 		}
 	}
 	pcap_close(handle);

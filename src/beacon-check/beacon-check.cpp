@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <chrono>
 #include <iostream>
-#include <map>
 #include <thread>
 
 #include <unistd.h>
@@ -19,31 +18,7 @@ void usage() {
 	printf("sample: beacon-check mon0 00:00:00:11:11:11\n");
 }
 
-struct Key {
-	le16_t seq_;
-
-	Key(le16_t seq) : seq_(seq) {}
-
-	bool operator < (const Key& r) const {
-		return seq_ < r.seq_;
-	}
-};
-
-struct Val {
-	timeval tv_;
-	le8_t bitmap_;
-
-	Val(timeval tv,	le8_t bitmap) : tv_(tv), bitmap_(bitmap) {}
-};
-
-typedef std::map<Key, Val> ApMap;
 ApMap apMap;
-
-int64_t getDiffTime(timeval tv1, timeval tv2) {
-	int64_t res = (tv1.tv_sec - tv2.tv_sec) * 1000000;
-	res += (tv1.tv_usec - tv2.tv_usec);
-	return res;
-}
 
 void checkThreadProc(std::string interface, Mac apMac) {
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -66,8 +41,7 @@ void checkThreadProc(std::string interface, Mac apMac) {
 		BeaconHdrInfo bhi;
 		if (!bhi.parse(pchar(packet), header->caplen)) continue;
 		RadiotapHdr* radiotapHdr = bhi.radiotapHdr_;
-		le16_t len = radiotapHdr->len_;
-		if (len == 13) continue;
+		//if (radiotapHdr->len_ == 13) continue;
 
 		BeaconHdr* beaconHdr = bhi.beaconHdr_;
 		if (beaconHdr->bssid() != apMac) continue;
@@ -81,8 +55,13 @@ void checkThreadProc(std::string interface, Mac apMac) {
 		} else{
 			Val val2 = it->second;
 			if (val.bitmap_ != val2.bitmap_) {
-				int64_t diff = getDiffTime(val.tv_, val2.tv_);
-				printf("%u %ld %u %u\n", key.seq_, diff, val.bitmap_, val2.bitmap_);
+				if (val.bitmap_ != 0) {
+					int64_t diff = getDiffTime(val.tv_, val2.tv_);
+					printf("%u %u %ld %u %u\n", radiotapHdr->len_, key.seq_, diff, val.bitmap_, val2.bitmap_);
+				} else {
+					int64_t diff = getDiffTime(val2.tv_, val.tv_);
+					printf("%u %u %ld %u %u\n", radiotapHdr->len_, key.seq_, diff, val2.bitmap_, val.bitmap_);
+				}
 			}
 			apMap.erase(it);
 		}
