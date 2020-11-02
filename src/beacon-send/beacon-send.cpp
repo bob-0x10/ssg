@@ -23,8 +23,8 @@ typedef struct {
 #pragma pack(pop)
 
 void usage() {
-	printf("syntax: timbitmap <interface> <ap-mac>\n");
-	printf("sample: timbitmap mon0 00:00:00:11:11:11\n");
+	printf("syntax: beacon-send <interface> <ap-mac>\n");
+	printf("sample: beacon-send mon0 00:00:00:11:11:11\n");
 }
 
 std::thread* sendThread_{nullptr};
@@ -107,7 +107,7 @@ void scanThreadProc(std::string interface, Mac apMac) {
 
 		if (status == Finding) {
 			Mac bssid = beaconHdr->bssid();
-			if (!(bssid == apMac)) continue;
+			if (bssid != apMac) continue;
 			if (bhi.tim_->control_ != 0 || bhi.tim_->bitmap_ != 0) continue;
 			bhi.tim_->control_ = 1; // multicast
 			bhi.tim_->bitmap_ = 0xFF;

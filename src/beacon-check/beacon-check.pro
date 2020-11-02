@@ -23,4 +23,4 @@ SOURCES += \
 	../gtrace.cpp \
 	../mac.cpp \
 	../radiotaphdr.cpp \
-	beacon-send.cpp
+	beacon-check.cpp
