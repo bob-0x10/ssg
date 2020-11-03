@@ -26,12 +26,10 @@ void usage() {
 	printf("sample: beacon-send mon0 00:00:00:11:11:11\n");
 }
 
-ApMap apMap;
-
 std::thread* sendThread_{nullptr};
 Diff adjust{0};
 void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
-	GTRACE("sendThread beg\n");
+	GTRACE("sendThreadProc beg\n");
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
@@ -52,7 +50,7 @@ void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
 		beaconHdr->seq_ += 1;
 		for (int i = 0; i < 1; i++) {
 			//GTRACE("sending seq=%u\n", beaconHdr->seq_); // gilgil temp
-			int res = pcap_sendpacket(handle, (const u_char*)p, writeLen);
+			int res = pcap_sendpacket(handle, p, writeLen);
 			if (res != 0) {
 				GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
 				exit(-1);
@@ -80,9 +78,32 @@ void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
 		//usleep(sleepTime.count() / 1000); // gilgil temp
 		last = Timer::now();
 	}
-	GTRACE("sendThread end\n");
+	GTRACE("sendThreadProc end\n");
 }
 
+void sendThreadProc2(std::string interface, SendStruct ss, uint32_t writeLen) {
+	GTRACE("sendThreadProc2 beg\n");
+	char errbuf[PCAP_ERRBUF_SIZE];
+	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
+	if (handle == nullptr) {
+		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
+		return;
+	}
+
+	const u_char* p = (const u_char*)&ss;
+	Diff sleepTime = std::chrono::milliseconds(1);
+	while (true) {
+		int res = pcap_sendpacket(handle, p, writeLen);
+		if (res != 0) {
+			GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
+			exit(-1);
+		}
+		std::this_thread::sleep_for(sleepTime);
+	}
+	GTRACE("sendThreadProc2 end\n");
+}
+
+ApMap apMap;
 void scanThreadProc(std::string interface, Mac apMac) {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
@@ -121,12 +142,14 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			QosNullHdr* qosNullHdr = QosNullHdr::check(dot11Hdr, size);
 			if (qosNullHdr == nullptr) continue;
 			if (qosNullHdr->bssid() != apMac) continue;
-			GTRACE("QosNull bssid=%s sta=%s\n",
+			printf("                                                                 QosNull bssid=%s sta=%s\n",
 				std::string(qosNullHdr->bssid()).c_str(),
 				std::string(qosNullHdr->sta()).c_str());
 			continue;
 		}
 		if (typeSubtype != Dot11Hdr::Beacon) continue;
+
+
 
 		BeaconHdr* beaconHdr = BeaconHdr::check(dot11Hdr, size);
 		if (beaconHdr == nullptr) continue;
@@ -155,11 +178,11 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			BeaconHdr* sendBeaconHdr = PBeaconHdr(p + sendRadiotapHdr->len_);
 			uint32_t writeLen = header->caplen - (radiotapHdr->len_ - sizeof(RadiotapHdr));
 			memcpy(sendBeaconHdr, beaconHdr, writeLen);
-			sendThread_ = new std::thread(sendThreadProc, interface, ss, writeLen); sendThread_->detach();
-			//sendThread(handle, ss, writeLen);
+			sendThread_ = new std::thread(sendThreadProc, interface, ss, writeLen); sendThread_->detach(); // gilgil temp 2020.11.03
+			// sendThread_ = new std::thread(sendThreadProc2, interface, ss, writeLen); sendThread_->detach();
 			status = Adjusting;
 		} else {
-			continue; // gilgil temp
+			// continue; // gilgil temp
 			if (blen == 13) continue;
 
 			if (beaconHdr->bssid() != apMac) continue;
@@ -171,21 +194,31 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			if (it == apMap.end()) {
 				apMap.insert(std::make_pair(key, val_new));
 			} else {
-				Val val_old = it->second;
-				if (val_old.bitmap_ != val_new.bitmap_) {
-					int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
-					if (val_old.bitmap_ ==0xFF) { // old-my new-real
-						//
-						// fast
-						//
-						adjust = Diff(diff * 1000);
-						fprintf(stderr, "fast seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, -diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
-					} else {
-						//
-						// slow
-						//
-						adjust = -Diff(diff * 1000);
-						fprintf(stderr, "slow seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
+				static int count = 0;
+				if (count++ % 10 == 5) {
+					Val val_old = it->second;
+					if (val_old.bitmap_ != val_new.bitmap_) {
+						int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
+						if (diff > 10000000) { // 10 sec ( too old value )
+							GTRACE("too old diff %ld\n", diff);
+							apMap.erase(it); // delete old
+							apMap.insert(std::make_pair(key, val_new)); // insert new
+							continue;
+						}
+						diff -= 500; // 0.5 usec // gilgil temp
+						if (val_old.bitmap_ ==0xFF) { // old-my new-real
+							//
+							// fast
+							//
+							adjust = Diff(diff * 1000);
+							fprintf(stderr, "fast seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, -diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
+						} else {
+							//
+							// slow
+							//
+							adjust = -Diff(diff * 1000);
+							fprintf(stderr, "slow seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
+						}
 					}
 				}
 				apMap.clear();
