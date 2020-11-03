@@ -51,7 +51,7 @@ void checkThreadProc(std::string interface, Mac apMac) {
 			QosNullHdr* qosNullHdr = QosNullHdr::check(dot11Hdr, size);
 			if (qosNullHdr == nullptr) continue;
 			if (qosNullHdr->bssid() != apMac) continue;
-			GTRACE("QosNull bssid=%s sta=%s\n",
+			printf("                                                                 QosNull bssid=%s sta=%s\n",
 				std::string(qosNullHdr->bssid()).c_str(),
 				std::string(qosNullHdr->sta()).c_str());
 			continue;
