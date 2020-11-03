@@ -1,5 +1,15 @@
 #include "beaconhdr.h"
 
+BeaconHdr* BeaconHdr::check(Dot11Hdr* dot11Hdr, uint32_t size) {
+	assert(dot11Hdr->typeSubtype() == Dot11Hdr::Beacon);
+	if (size < sizeof(BeaconHdr)) {
+		GTRACE("invalid size %u\n", size);
+		dump(puchar(dot11Hdr), size);
+		return nullptr;
+	}
+	return PBeaconHdr(dot11Hdr);
+}
+
 #ifdef GTEST
 #include <gtest/gtest.h>
 
@@ -36,18 +46,18 @@ TEST(BeaconHdr, typeTest) {
 	le16_t seq = beaconHdr->seq_;
 	EXPECT_EQ(seq, 3413);
 
-	BeaconHdr::FixedParameters* fixed = &beaconHdr->fixed_;
+	BeaconHdr::Fix* fix = &beaconHdr->fix_;
 
-	le64_t timestamp = fixed->timestamp_;
+	le64_t timestamp = fix->timestamp_;
 	EXPECT_EQ(timestamp, 3705037138);
 
-	le16_t beaconInterval = fixed->beaconInterval_;
+	le16_t beaconInterval = fix->beaconInterval_;
 	EXPECT_EQ(beaconInterval, 100); // 100 msec
 
-	le16_t capabilities = fixed->capabilities_;
+	le16_t capabilities = fix->capabilities_;
 	EXPECT_EQ(capabilities, 0x0C11);
 
-	BeaconHdr::TaggedParameters::Tag* tag = &beaconHdr->tagged_.tag_;
+	BeaconHdr::Tag* tag = beaconHdr->tag();
 	le8_t num = tag->num_;
 	EXPECT_EQ(num, BeaconHdr::tagSsidParameterSet);
 	tag = tag->next();

@@ -1,5 +1,16 @@
 #include "dot11hdr.h"
 
+Dot11Hdr* Dot11Hdr::check(RadiotapHdr* radiotapHdr, uint32_t size) {
+	uint32_t len = radiotapHdr->len_;
+	Dot11Hdr* dot11Hdr = PDot11Hdr(pchar(radiotapHdr) + len);
+	if (size < sizeof(Dot11Hdr) + len) {
+		//GTRACE("invalid size radiotapHdr->len=%u size=%u\n", len, size);
+		//dump(puchar(radiotapHdr), len /*size*/); // gilgil temp
+		return nullptr;
+	}
+	return dot11Hdr;
+}
+
 #ifdef GTEST
 #include <gtest/gtest.h>
 

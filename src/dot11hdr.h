@@ -1,10 +1,9 @@
 #pragma once
 
-#include "common.h"
+#include "radiotaphdr.h"
 
 #pragma pack(push, 1)
 struct Dot11Hdr {
-	//uint8_t typeSubtype_;
 	le8_t ver_:2;
 	le8_t type_:2;
 	le8_t subtype_:4;
@@ -23,8 +22,11 @@ struct Dot11Hdr {
 	// typeSubtype
 	enum: le8_t {
 		Beacon = 0x08,
-		Acknowledgement = 0x1d
+		QosNull = 0x2C,
+		Acknowledgement = 0x1D
 	};
+
+	static Dot11Hdr* check(RadiotapHdr* radiotapHdr, uint32_t size);
 };
 typedef Dot11Hdr *PDot11Hdr;
 #pragma pack(pop)

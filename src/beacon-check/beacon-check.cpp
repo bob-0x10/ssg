@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <pcap.h>
 #include "beaconhdrinfo.h"
-#include "gtrace.h"
+#include "qosnullhdr.h"
 
 typedef std::chrono::high_resolution_clock::time_point Clock;
 typedef std::chrono::high_resolution_clock::duration Diff;
@@ -37,13 +37,36 @@ void checkThreadProc(std::string interface, Mac apMac) {
 			fprintf(stderr, "pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
 			break;
 		}
+\
+		uint32_t size = header->caplen;
+		RadiotapHdr* radiotapHdr = RadiotapHdr::check(pchar(packet), size);
+		if (radiotapHdr == nullptr) continue;
+		size -= radiotapHdr->len_;
+
+		Dot11Hdr* dot11Hdr = Dot11Hdr::check(radiotapHdr, size);
+		if (dot11Hdr == nullptr) continue;
+
+		le8_t typeSubtype = dot11Hdr->typeSubtype();
+		if (typeSubtype == Dot11Hdr::QosNull) {
+			QosNullHdr* qosNullHdr = QosNullHdr::check(dot11Hdr, size);
+			if (qosNullHdr == nullptr) continue;
+			if (qosNullHdr->bssid() != apMac) continue;
+			GTRACE("QosNull bssid=%s sta=%s\n",
+				std::string(qosNullHdr->bssid()).c_str(),
+				std::string(qosNullHdr->sta()).c_str());
+			continue;
+		}
+
+		if (typeSubtype != Dot11Hdr::Beacon) continue;
+
+		BeaconHdr* beaconHdr = BeaconHdr::check(dot11Hdr, size);
+		if (beaconHdr == nullptr) continue;
 
 		BeaconHdrInfo bhi;
-		if (!bhi.parse(pchar(packet), header->caplen)) continue;
-		RadiotapHdr* radiotapHdr = bhi.radiotapHdr_;
-		//if (radiotapHdr->len_ == 13) continue;
+		if (!bhi.parse(beaconHdr, size)) continue;
+		le16_t blen = radiotapHdr->len_;
+		if (blen == 13) continue;
 
-		BeaconHdr* beaconHdr = bhi.beaconHdr_;
 		if (beaconHdr->bssid() != apMac) continue;
 
 		Key key(beaconHdr->seq_);
@@ -56,17 +79,19 @@ void checkThreadProc(std::string interface, Mac apMac) {
 			Val val_old = it->second;
 			if (val_old.bitmap_ != val_new.bitmap_) {
 				int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
+				if (diff > 10000000) { // 10 sec ( too old value )
+					GTRACE("too old diff %ld\n", diff);
+					apMap.erase(it); // delete old
+					apMap.insert(std::make_pair(key, val_new)); // insert new
+					continue;
+				}
 				if (val_old.bitmap_ ==0xFF) { // old-my new-real
-					//
 					// fast
-					//
 					diff = -diff;
-					fprintf(stderr, "fast seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
+					fprintf(stderr, "fast seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				} else {
-					//
 					// slow
-					//
-					fprintf(stderr, "slow seq=%u diff=%5ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key.seq_, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
+					fprintf(stderr, "slow seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 				}
 			}
 			apMap.erase(it);

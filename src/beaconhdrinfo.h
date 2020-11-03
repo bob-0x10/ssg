@@ -1,23 +1,16 @@
 #pragma once
 
 #include <map>
-#include "radiotaphdr.h"
 #include "beaconhdr.h"
 
 struct BeaconHdrInfo {
-	RadiotapHdr* radiotapHdr_;
-	BeaconHdr* beaconHdr_;
 	BeaconHdr::TrafficIndicationMap* tim_;
 
-	bool parse(char* packet, uint32_t len);
+	bool parse(BeaconHdr* beaconHdr, uint32_t size);
 };
 typedef BeaconHdrInfo *PBeaconHdrInfo;
 
-struct Key {
-	le16_t seq_;
-	Key(le16_t seq) : seq_(seq) {}
-	bool operator < (const Key& r) const { return seq_ < r.seq_; }
-};
+typedef le16_t Key;
 
 struct Val {
 	le16_t len_;

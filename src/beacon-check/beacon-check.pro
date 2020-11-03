@@ -14,13 +14,16 @@ HEADERS += \
 	../dot11hdr.h \
 	../gtrace.h \
 	../mac.h \
+	../qosnullhdr.h \
 	../radiotaphdr.h
 
 SOURCES += \
 	../beaconhdr.cpp \
 	../beaconhdrinfo.cpp \
-	../dot11.cpp \
+	../common.cpp \
+	../dot11hdr.cpp \
 	../gtrace.cpp \
 	../mac.cpp \
+	../qosnullhdr.cpp \
 	../radiotaphdr.cpp \
 	beacon-check.cpp
