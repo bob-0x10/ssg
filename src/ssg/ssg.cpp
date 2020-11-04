@@ -17,7 +17,7 @@ void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
 
 	const u_char* p = (const u_char*)&ss;
 	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
-	Diff interval = Diff(beaconHdr->fix_.beaconInterval_ * 1024 * 1000);
+	Diff interval = Diff(beaconHdr->fix_.beaconInterval_ * 102395...* 1000);
 	//interval = Diff(5000000000); // 5 sec // gilgil temp 2020.11.01
 	GTRACE("interval=%ld\n", interval.count());
 
@@ -220,8 +220,17 @@ int main(int argc, char* argv[]) {
 	ssg.open();
 
 	while (true) {
-		int64_t i; std::cin >> i;
-		i *= 1000000;
-		//adjust = Diff(i);
+		int64_t adjustOffset = 0;
+		std::cin >> adjustOffset;
+		if (adjustOffset == 0) break;
+		adjustOffset *= 1000000;
+		ssg.apMap_.mutex_.lock();
+		for (Ssg::ApMap::iterator it = ssg.apMap_.begin(); it != ssg.apMap_.end(); it++) {
+			Ssg::ApInfo& apInfo = it->second;
+			apInfo.adjustOffset(Diff(adjustOffset));
+		}
+		ssg.apMap_.mutex_.unlock();
 	}
+
+	ssg.close();
 }

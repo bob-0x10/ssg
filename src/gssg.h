@@ -37,6 +37,7 @@ struct Ssg { // Station Signal Generator
 		le8_t control_;
 		le8_t bitmap_;
 		void clear() {
+			ok_ = false;
 			tv_.tv_sec = 0;
 			tv_.tv_usec = 0;
 			rlen_ = 0;
@@ -45,22 +46,29 @@ struct Ssg { // Station Signal Generator
 		}
 	};
 	struct SeqInfos {
+		bool isOk() { return realInfo_.ok_ && myInfo_.ok_; }
 		SeqInfo realInfo_;
 		SeqInfo myInfo_;
-		uint64_t diffTime_;
 	};
+
 	struct SeqMap : std::map<le16_t/*seq*/, SeqInfos> {
 		int okCount_{0};
+		void clear() {
+			okCount_ = 0;
+			std::map<le16_t , SeqInfos>::clear();
+		}
 	};
 
 	struct ApInfo {
 		BeaconFrame beaconFrame_;
 		Diff sendInterval_{Diff(0)}; // atomic
+		Clock nextFrameSent_{std::chrono::seconds(0)};
 		SeqMap seqMap_;
 
 		Diff adjustOffset_{Diff(0)}; // atomic
 		Diff adjustInterval_{Diff(0)}; // atomic
-		void adjust(Diff offset, Diff interval);
+		void adjustOffset(Diff changeOffset);
+		void adjustInterval(Diff changeInterval);
 	};
 
 	struct ApMap : std::unordered_map<Mac, ApInfo>  {

@@ -21,11 +21,13 @@ void Ssg::BeaconFrame::send(pcap_t* handle) {
 	}
 }
 
-void Ssg::ApInfo::adjust(Diff offset, Diff interval) {
-	adjustOffset_ = offset;
-	adjustInterval_ = interval;
+void Ssg::ApInfo::adjustOffset(Diff changeOffset) {
+	adjustOffset_ = changeOffset;
 }
 
+void Ssg::ApInfo::adjustInterval(Diff changeInterval) {
+	adjustInterval_ = changeInterval;
+}
 
 bool Ssg::open() {
 	if (active_) return false;
@@ -61,8 +63,24 @@ void Ssg::scanThread() {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface_.c_str(), BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
-		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
+		GTRACE("pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
 		return;
+	}
+
+	if (filter_ != "") {
+		u_int uNetMask = 0xFFFFFFFF;;
+		bpf_program code;
+
+		if (pcap_compile(handle, &code, filter_.c_str(), 1, uNetMask) < 0) {
+			GTRACE("error in pcap_compile(%s)\n", pcap_geterr(handle));
+			pcap_close(handle);
+			return;
+		}
+		if (pcap_setfilter(handle, &code) < 0) {
+			GTRACE("error in pcap_setfilter(%s)\n", pcap_geterr(handle));
+			pcap_close(handle);
+			return;
+		}
 	}
 
 	while (active_) {
@@ -71,7 +89,7 @@ void Ssg::scanThread() {
 		int res = pcap_next_ex(handle, &header, &packet);
 		if (res == 0) continue;
 		if (res == -1 || res == -2) {
-			fprintf(stderr, "pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
+			GTRACE("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
 			break;
 		}
 
@@ -79,6 +97,7 @@ void Ssg::scanThread() {
 		RadiotapHdr* radiotapHdr = RadiotapHdr::check(pchar(packet), size);
 		if (radiotapHdr == nullptr) continue;
 		le16_t rlen = radiotapHdr->len_;
+		// GTRACE("radiotapHdr->len_=%u\n", rlen); // gilgil temp
 		if (rlen == _config.rt_.ignore_) continue;
 		size -= radiotapHdr->len_;
 
@@ -108,9 +127,13 @@ void Ssg::scanThread() {
 			std::lock_guard<std::mutex> guard(apMap_.mutex_);
 			ApMap::iterator it = apMap_.find(bssid);
 
-			if (it != apMap_.end()) {
+			if (it == apMap_.end()) {
+				tim->control_ = _config.tim_.control_;
+				tim->bitmap_ = _config.tim_.bitmap_;
 				ApInfo apInfo;
 				if (!apInfo.beaconFrame_.init(beaconHdr, size)) continue;
+				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
+				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
 				apMap_.insert({bssid, apInfo});
 				it = apMap_.find(bssid);
 				assert(it != apMap_.end());
@@ -123,9 +146,9 @@ void Ssg::scanThread() {
 			seqInfo.control_ = tim->control_;
 			seqInfo.bitmap_ = tim->bitmap_;
 			processAdjust(apInfo, beaconHdr->seq_, seqInfo);
-
 		}
 	}
+	pcap_close(handle);
 	GTRACE("scanThread end\n");
 }
 
@@ -138,51 +161,53 @@ void Ssg::sendThread() {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface_.c_str(), 0, 0, 0, errbuf);
 	if (handle == nullptr) {
-		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
+		GTRACE("pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
 		return;
 	}
 
 	while (active_) {
-		for (ApMap::iterator it = apMap_.begin(); it != apMap_.end(); it++) {
-
-		}
-	}
-
-	const u_char* p = (const u_char*)&ss;
-	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
-	Diff interval = Diff(beaconHdr->fix_.beaconInterval_ * 1023995);
-	//interval = Diff(5000000000); // 5 sec // gilgil temp 2020.11.01
-	GTRACE("interval=%ld\n", interval.count());
-
-	//std::this_thread::sleep_for(interval);
-	Clock next= Timer::now();
-	while (true) {
 		Clock now = Timer::now();
-		if (adjust != Diff(0)) {
-			next += adjust;
-			adjust = Diff(0);
-		}
-		if (now < next) {
-			// continue; // gilgil temp 2020.11.04
-			Diff remain = next - now;
-			remain /= 2;
-			remain -= Diff(20000000); // 20 millisecond
-			//GTRACE("remain=%ld\n", remain.count());
-			if (remain.count() > 0)
-				std::this_thread::sleep_for(remain);
-			continue;
-		}
-		beaconHdr->seq_ += 1;
-		for (int i = 0; i < 1; i++) {
-			//GTRACE("sending seq=%u\n", beaconHdr->seq_); // gilgil temp
-			int res = pcap_sendpacket(handle, p, writeLen);
-			if (res != 0) {
-				GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
-				exit(-1);
+		apMap_.mutex_.lock();
+		for (ApMap::iterator it = apMap_.begin(); it != apMap_.end(); it++) {
+			ApInfo& apInfo = it->second;
+			if (apInfo.adjustOffset_ != Diff(0)) {
+				apInfo.nextFrameSent_+= apInfo.adjustOffset_;
+				apInfo.adjustOffset_ = Diff(0);
+			}
+			if (apInfo.adjustInterval_ != Diff(0)) {
+				apInfo.sendInterval_ += apInfo.adjustInterval_;
+				apInfo.adjustInterval_ = Diff(0);
+			}
+			if (now >= apInfo.nextFrameSent_) {
+				le16_t seq = apInfo.beaconFrame_.beaconHdr_.seq_;
+				seq++;
+				apInfo.beaconFrame_.beaconHdr_.seq_ = seq++;
+
+				apInfo.beaconFrame_.send(handle);
+				{
+					std::string bssid = std::string(it->first);
+					GTRACE("beacon sent %s seq=%d\n", bssid.c_str(), seq); // gilgil temp
+					apInfo.nextFrameSent_ = now + apInfo.sendInterval_;
+				}
 			}
 		}
-		next += interval;
+
+		now = Timer::now();
+		Diff minWaitTime = Diff(_config.sendPollingTime_ * 2);
+		for (ApMap::iterator it = apMap_.begin(); it != apMap_.end(); it++) {
+			ApInfo& apInfo = it->second;
+			Diff diff = apInfo.nextFrameSent_ - now;
+			if (minWaitTime < diff)
+				minWaitTime = diff;
+		}
+		apMap_.mutex_.unlock();
+
+		minWaitTime /= 2;
+		minWaitTime -= Diff(_config.sendPollingTime_);
+		if (minWaitTime > Diff(0))
+			std::this_thread::sleep_for(minWaitTime);
 	}
+	pcap_close(handle);
 	GTRACE("sendThread end\n");
 }
 
@@ -203,7 +228,7 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	if (it == seqMap.end()) {
 		SeqInfos seqInfos;
 		seqMap.insert({seq, seqInfos});
-		it = seqMap.end();
+		it = seqMap.find(seq);
 		assert(it != seqMap.end());
 	}
 	SeqInfos& seqInfos = it->second;
@@ -214,42 +239,59 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	} else {
 		seqInfos.realInfo_ = seqInfo;
 	}
-	if (seqInfos.myInfo_.ok_ && seqInfos.realInfo_.ok_) {
-		seqInfos.diffTime_ = getDiffTime(seqInfos.myInfo_.tv_, seqInfos.realInfo_.tv_);
-		if (seqInfos.diffTime_ > _config.tooOldSeqCompareInterval_) { // real is too old
-			seqInfos.realInfo_.clear();
+	if (seqInfos.isOk()) {
+		uint64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.myInfo_.tv_);
+		if (diffTime > _config.tooOldSeqCompareInterval_) { // my is too old
+			seqInfos.myInfo_.clear();
 			return;
 		}
-		if (seqInfos.diffTime_ < -_config.tooOldSeqCompareInterval_) { // my is too old
-			seqInfos.myInfo_.clear();
+		if (diffTime < -_config.tooOldSeqCompareInterval_) { // real is too old
+			seqInfos.realInfo_.clear();
 			return;
 		}
 		seqMap.okCount_++;
 	}
 	if (seqMap.okCount_ >= _config.beaconAdjustCount_) {
-		uint64_t offset = seqInfos.diffTime_;
-
-		uint64_t interval(0);
-		SeqMap::iterator prev = seqMap.begin();
-		SeqMap::iterator next = prev; next++;
-		assert(next != seqMap.end());
-		int okCount = 0;
-		while (true) {
-			SeqInfo& prevSeqInfo = prev->second.realInfo_;
-			SeqInfo& nextSeqInfo = next->second.realInfo_;
-			if (prevSeqInfo.ok_ && nextSeqInfo.ok_) {
-				uint64_t diff = getDiffTime(nextSeqInfo.tv_, prevSeqInfo.tv_);
-				interval += diff;
-				okCount++;
+		assert(seqMap.okCount_ > 2);
+		//
+		// seq my   real
+		// 100 1010 1000
+		// 101 1019 1009
+		// 102 1030 1018
+		// 103 1040 1027
+		//
+		// changeOffset = -13 : (1027- 1040)
+		// changeInterval = -1 : ((1027 - 1000) - (1040 - 1010)) / 3
+		//
+		timeval firstMyTv{0,0}, firstRealTv{0,0};
+		for (SeqMap::iterator it = seqMap.begin(); it != seqMap.end(); it++) {
+			SeqInfos& seqInfos = it->second;
+			if (seqInfos.isOk()) {
+				firstMyTv = seqInfos.myInfo_.tv_;
+				firstRealTv = seqInfos.realInfo_.tv_;
+				break;
 			}
-			prev = next;
-			if (++next == seqMap.end()) break;
 		}
-		interval /= okCount;
-		apInfo.adjust(Diff(offset), Diff(interval));
-		printf("offset=%ld interval=%ld\n", offset, interval);
+		assert(!(firstMyTv.tv_sec == 0 && firstMyTv.tv_usec == 0));
+
+		timeval lastMyTv{0,0}, lastRealTv{0,0};
+		for (SeqMap::reverse_iterator it = seqMap.rbegin(); it != seqMap.rend(); it++) {
+			SeqInfos& seqInfos = it->second;
+			if (seqInfos.isOk()) {
+				lastMyTv = seqInfos.myInfo_.tv_;
+				lastRealTv = seqInfos.realInfo_.tv_;
+				break;
+			}
+		}
+		assert(!(lastMyTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
+
+		uint64_t changeOffset = getDiffTime(lastRealTv, lastMyTv);
+		uint64_t changeInterval = (getDiffTime(lastRealTv, lastRealTv) - getDiffTime(lastMyTv, firstMyTv)) / seqMap.okCount_;
+
+		apInfo.adjustOffset(Diff(changeOffset));
+		apInfo.adjustInterval(Diff(changeInterval));
+		GTRACE("changeOffset=%ld changeInterval=%ld\n", changeOffset, changeInterval);
 		seqMap.clear();
-		seqMap.okCount_ = 0;
 	}
 }
 
