@@ -259,7 +259,6 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		seqMap.okCount_++;
 	}
 	if (seqMap.okCount_ >= _config.beaconAdjustCount_) {
-		assert(seqMap.okCount_ > 2);
 		//
 		// seq my   real
 		// 100 1010 1000
@@ -293,10 +292,11 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		assert(!(lastMyTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
 
 		int64_t changeOffset = getDiffTime(lastRealTv, lastMyTv);
-		int64_t changeInterval = (getDiffTime(lastRealTv, lastRealTv) - getDiffTime(lastMyTv, firstMyTv)) / seqMap.okCount_;
+		assert(seqMap.okCount_ > 1);
+		int64_t changeInterval = (getDiffTime(lastRealTv, lastRealTv) - getDiffTime(lastMyTv, firstMyTv)) / seqMap.okCount_ - 1;
 
 		apInfo.adjustOffset(Diff(changeOffset));
-		apInfo.adjustInterval(Diff(changeInterval));
+		//apInfo.adjustInterval(Diff(changeInterval));
 		GTRACE("changeOffset=%ld changeInterval=%ld\n", changeOffset, changeInterval);
 		seqMap.clear();
 	}
