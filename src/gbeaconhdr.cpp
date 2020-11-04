@@ -1,4 +1,4 @@
-#include "beaconhdr.h"
+#include "gbeaconhdr.h"
 
 BeaconHdr* BeaconHdr::check(Dot11Hdr* dot11Hdr, uint32_t size) {
 	assert(dot11Hdr->typeSubtype() == Dot11Hdr::Beacon);
@@ -13,7 +13,7 @@ BeaconHdr* BeaconHdr::check(Dot11Hdr* dot11Hdr, uint32_t size) {
 #ifdef GTEST
 #include <gtest/gtest.h>
 
-#include "radiotaphdr.h"
+#include "gradiotaphdr.h"
 
 TEST(BeaconHdr, typeTest) {
 	uint8_t packet[] = { // dot11-sample.pcap frame.number==1

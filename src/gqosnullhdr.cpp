@@ -1,4 +1,4 @@
-#include "qosnullhdr.h"
+#include "gqosnullhdr.h"
 
 QosNullHdr* QosNullHdr::check(Dot11Hdr* dot11Hdr, uint32_t size) {
 	assert(dot11Hdr->typeSubtype() == Dot11Hdr::QosNull);

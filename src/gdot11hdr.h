@@ -1,6 +1,6 @@
 #pragma once
 
-#include "radiotaphdr.h"
+#include "gradiotaphdr.h"
 
 #pragma pack(push, 1)
 struct Dot11Hdr {

@@ -1,4 +1,4 @@
-#include "mac.h"
+#include "gmac.h"
 
 Mac::Mac(const std::string r) {
 	unsigned int a, b, c, d, e, f;

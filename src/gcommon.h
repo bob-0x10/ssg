@@ -2,7 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
-#include "mac.h"
+#include "gmac.h"
 #include "gtrace.h"
 
 typedef uint8_t le8_t;

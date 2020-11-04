@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "gcommon.h"
 
 #pragma pack(push, 1)
 struct RadiotapHdr {

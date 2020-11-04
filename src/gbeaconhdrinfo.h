@@ -1,7 +1,7 @@
 #pragma once
 
 #include <map>
-#include "beaconhdr.h"
+#include "gbeaconhdr.h"
 
 struct BeaconHdrInfo {
 	BeaconHdr::TrafficIndicationMap* tim_;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dot11hdr.h"
+#include "gdot11hdr.h"
 
 #pragma pack(push, 1)
 struct QosNullHdr : Dot11Hdr {

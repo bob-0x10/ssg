@@ -26,4 +26,4 @@ SOURCES += \
 	../mac.cpp \
 	../qosnullhdr.cpp \
 	../radiotaphdr.cpp \
-	beacon-send.cpp
+	ssg-send.cpp

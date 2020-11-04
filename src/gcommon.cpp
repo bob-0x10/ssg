@@ -1,4 +1,4 @@
-#include "common.h"
+#include "gcommon.h"
 
 void dump(unsigned char* buf, int size) {
 	int i;

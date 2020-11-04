@@ -1,4 +1,4 @@
-#include "dot11hdr.h"
+#include "gdot11hdr.h"
 
 Dot11Hdr* Dot11Hdr::check(RadiotapHdr* radiotapHdr, uint32_t size) {
 	uint32_t len = radiotapHdr->len_;
