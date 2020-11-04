@@ -3,8 +3,8 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 DEFINES += GTEST
-
 LIBS += -lgtest_main -lgtest -pthread
+DESTDIR = $${PWD}/../../bin
 
 HEADERS += \
 	../gbeaconhdr.h \

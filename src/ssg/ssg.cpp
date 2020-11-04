@@ -1,32 +1,13 @@
-#include <cassert>
-#include <cstdio>
-#include <chrono>
 #include <iostream>
-#include <thread>
-
-#include <unistd.h>
-#include <pcap.h>
-#include "beaconhdrinfo.h"
-#include "qosnullhdr.h"
-
-
-#pragma pack(push, 1)
-typedef struct {
-	RadiotapHdr radiotapHdr;
-	BeaconHdr beaconHdr;
-	char dummy[1024]; // gilgil temp
-} SendStruct;
-#pragma pack(pop)
+#include "gssg.h"
 
 void usage() {
-	printf("syntax: ssg <interface> <ap-mac>\n");
-	printf("sample: ssg mon0 00:00:00:11:11:11\n");
+	printf("syntax: ssg <interface> <filter>\n");
+	printf("sample: ssg mon0 \"ether host 00:00:00:11:11:11\"\n");
 }
 
-std::thread* sendThread_{nullptr};
-Diff adjust{0};
+/*
 void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
-	GTRACE("sendThreadProc beg\n");
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
@@ -79,50 +60,7 @@ void sendThreadProc(std::string interface, SendStruct ss, uint32_t writeLen) {
 }
 
 void sendThreadProc2(std::string interface, SendStruct ss, uint32_t writeLen) {
-	GTRACE("sendThreadProc2 beg\n");
-	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
-	if (handle == nullptr) {
-		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
-		return;
-	}
 
-	const u_char* p = (const u_char*)&ss;
-	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
-	Diff interval = Diff(beaconHdr->fix_.beaconInterval_ * 1023995);
-	//interval = Diff(5000000000); // 5 sec // gilgil temp 2020.11.01
-	GTRACE("interval=%ld\n", interval.count());
-
-	//std::this_thread::sleep_for(interval);
-	Clock next= Timer::now();
-	while (true) {
-		Clock now = Timer::now();
-		if (adjust != Diff(0)) {
-			next += adjust;
-			adjust = Diff(0);
-		}
-		if (now < next) {
-			// continue; // gilgil temp 2020.11.04
-			Diff remain = next - now;
-			remain /= 2;
-			remain -= Diff(20000000); // 20 millisecond
-			//GTRACE("remain=%ld\n", remain.count());
-			if (remain.count() > 0)
-				std::this_thread::sleep_for(remain);
-			continue;
-		}
-		beaconHdr->seq_ += 1;
-		for (int i = 0; i < 1; i++) {
-			//GTRACE("sending seq=%u\n", beaconHdr->seq_); // gilgil temp
-			int res = pcap_sendpacket(handle, p, writeLen);
-			if (res != 0) {
-				GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
-				exit(-1);
-			}
-		}
-		next += interval;
-	}
-	GTRACE("sendThreadProc2 end\n");
 }
 
 void sendThreadProc3(std::string interface, SendStruct ss, uint32_t writeLen) {
@@ -267,22 +205,23 @@ void scanThreadProc(std::string interface, Mac apMac) {
 	}
 	pcap_close(handle);
 }
+*/
 
 int main(int argc, char* argv[]) {
-	if (argc != 3) {
+	if (argc < 2) {
 		usage();
 		return -1;
 	}
 	std::string interface = std::string(argv[1]);
-	Mac apMac = Mac(argv[2]);
-	std::thread st(scanThreadProc, interface, apMac);
+	std::string filter = "";
+	if (argc == 3) filter = std::string(argv[2]);
 
+	Ssg ssg(interface, filter);
+	ssg.open();
 
 	while (true) {
 		int64_t i; std::cin >> i;
 		i *= 1000000;
-		adjust = Diff(i);
+		//adjust = Diff(i);
 	}
-
-	st.join();
 }

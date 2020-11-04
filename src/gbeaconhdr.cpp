@@ -10,6 +10,23 @@ BeaconHdr* BeaconHdr::check(Dot11Hdr* dot11Hdr, uint32_t size) {
 	return PBeaconHdr(dot11Hdr);
 }
 
+BeaconHdr::TrafficIndicationMap* BeaconHdr::getTim(uint32_t size) {
+	char* end = pchar(this) + size;
+	BeaconHdr::Tag* t = tag();
+	while (true) {
+		if ((void*)t >= (void*)end) {
+			GTRACE("beaconHdp=%p tag=%p end=%p\n", pvoid(this), t, end);
+			break;
+		}
+		if (t->num_ == tagTrafficIndicationMap) {
+			TrafficIndicationMap* res = PTrafficIndicationMap(t);
+			return res;
+		}
+		t = t->next();
+	}
+	return nullptr;
+}
+
 #ifdef GTEST
 #include <gtest/gtest.h>
 

@@ -54,6 +54,7 @@ struct BeaconHdr : Dot11Hdr {
 	typedef TrafficIndicationMap *PTrafficIndicationMap;
 
 	static BeaconHdr* check(Dot11Hdr* dot11Hdr, uint32_t size);
+	TrafficIndicationMap* getTim(uint32_t size);
 };
 typedef BeaconHdr *PBeaconHdr;
 #pragma pack(pop)

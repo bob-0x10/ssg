@@ -2,55 +2,93 @@
 
 #include <atomic>
 #include <chrono>
-#include <unordered_map>
+#include <map>
 #include <mutex>
 #include <thread>
+#include <unordered_map>
 
 #include <pcap.h>
 #include "gbeaconhdr.h"
+#include "gconfig.h"
+#include "gqosnullhdr.h"
 
 typedef std::chrono::high_resolution_clock::time_point Clock;
 typedef std::chrono::high_resolution_clock::duration Diff;
 typedef std::chrono::high_resolution_clock Timer;
 
 struct Ssg { // Station Signal Generator
-	typedef struct {
-		RadiotapHdr radiotapHdr;
-		BeaconHdr beaconHdr;
-		char dummy[8192]; // enough size for beacon frame
-	} SendBeaconFrame;
+	#pragma pack(push, 1)
+	struct BeaconFrame {
+		static const int DummySize = 8192;
+		RadiotapHdr radiotapHdr_;
+		BeaconHdr beaconHdr_;
+		char dummy_[DummySize];
+		uint32_t size_;
+
+		bool init(BeaconHdr* beaconHdr, uint32_t size);
+		void send(pcap_t* handle);
+	};
+	#pragma pack(pop)
 
 	struct SeqInfo {
+		bool ok_{false};
 		timeval tv_;
+		le16_t rlen_; // radiotap len;
 		le8_t control_;
 		le8_t bitmap_;
+		void clear() {
+			tv_.tv_sec = 0;
+			tv_.tv_usec = 0;
+			rlen_ = 0;
+			control_ = 0;
+			bitmap_ = 0;
+		}
 	};
-	typedef std::unordered_map<le16_t/*seq*/, SeqInfo> SeqMap;
+	struct SeqInfos {
+		SeqInfo realInfo_;
+		SeqInfo myInfo_;
+		uint64_t diffTime_;
+	};
+	struct SeqMap : std::map<le16_t/*seq*/, SeqInfos> {
+		int okCount_{0};
+	};
 
 	struct ApInfo {
-		SendBeaconFrame sendBeaconFrame_;
-		std::atomic<Diff> sendInterval_{Diff(0)};
+		BeaconFrame beaconFrame_;
+		Diff sendInterval_{Diff(0)}; // atomic
+		SeqMap seqMap_;
 
-		SeqMap secMap_;
-
-		std::atomic<Diff> adjustOffset_{Diff(0)};
-		std::atomic<Diff> adjustInterval_{Diff(0)};
-
+		Diff adjustOffset_{Diff(0)}; // atomic
+		Diff adjustInterval_{Diff(0)}; // atomic
 		void adjust(Diff offset, Diff interval);
 	};
 
 	struct ApMap : std::unordered_map<Mac, ApInfo>  {
 		std::mutex mutex_;
-		Diff getMinNextTime();
 	};
 	ApMap apMap_;
 
-	bool open(std::string devName);
+	std::string interface_;
+	std::string filter_;
+	Ssg(std::string interface, std::string filter) {
+		interface_ = interface;
+		filter_ = filter;
+	}
+
+	bool active_{false};
+	bool open();
 	bool close();
 
-	std::thread* sendThread_{nullptr};
-	static void sendThread(Ssg* ssg);
-
 	std::thread* scanThread_{nullptr};
-	static void scanThreadProc(Ssg* ss);
+	static void _scanThread(Ssg* ssg);
+	void scanThread();
+
+	std::thread* sendThread_{nullptr};
+	static void _sendThread(Ssg* ssg);
+	void sendThread();
+
+protected:
+	void processQosNull(QosNullHdr* qosNullHdr);
+	void processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo);
+	static int64_t getDiffTime(timeval tv1, timeval tv2);
 };

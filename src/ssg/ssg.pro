@@ -8,24 +8,26 @@ LIBS += -lpcap -pthread
 DESTDIR = $${PWD}/../../bin
 
 HEADERS += \
-	../beaconhdr.h \
-	../beaconhdrinfo.h \
-	../common.h \
-	../dot11hdr.h \
+	../gbeaconhdr.h \
+	../gbeaconhdrinfo.h \
+	../gcommon.h \
+	../gconfig.h \
+	../gdot11hdr.h \
+	../gmac.h \
+	../gqosnullhdr.h \
+	../gradiotaphdr.h \
+	../gssg.h \
 	../gtrace.h \
-	../mac.h \
-	../qosnullhdr.h \
-	../radiotaphdr.h \
-	stationsignalgenerator.h
 
 SOURCES += \
-	../beaconhdr.cpp \
-	../beaconhdrinfo.cpp \
-	../common.cpp \
-	../dot11hdr.cpp \
+	../gbeaconhdr.cpp \
+	../gbeaconhdrinfo.cpp \
+	../gcommon.cpp \
+	../gconfig.cpp \
+	../gdot11hdr.cpp \
+	../gmac.cpp \
+	../gqosnullhdr.cpp \
+	../gradiotaphdr.cpp \
+	../gssg.cpp \
 	../gtrace.cpp \
-	../mac.cpp \
-	../qosnullhdr.cpp \
-	../radiotaphdr.cpp \
-	ssg.cpp \
-	stationsignalgenerator.cpp
+	ssg.cpp
