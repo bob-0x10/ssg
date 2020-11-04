@@ -13,7 +13,7 @@ struct Config {
 		le8_t bitmap_{0xFF};
 	} tim_;
 	int beaconAdjustCount_{3};
-	uint64_t tooOldSeqCompareInterval_{10000000000}; // 10 sec
-	uint64_t sendPollingTime_{1000000}; // 1 msec
+	int64_t tooOldSeqCompareInterval_{10000000000}; // 10 sec
+	int64_t sendPollingTime_{1000000}; // 1 msec
 };
 extern Config _config;

@@ -6,8 +6,8 @@
 
 #include <unistd.h>
 #include <pcap.h>
-#include "beaconhdrinfo.h"
-#include "qosnullhdr.h"
+#include "gbeaconhdrinfo.h"
+#include "gqosnullhdr.h"
 
 typedef std::chrono::high_resolution_clock::time_point Clock;
 typedef std::chrono::high_resolution_clock::duration Diff;

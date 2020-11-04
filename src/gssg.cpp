@@ -97,7 +97,12 @@ void Ssg::scanThread() {
 		RadiotapHdr* radiotapHdr = RadiotapHdr::check(pchar(packet), size);
 		if (radiotapHdr == nullptr) continue;
 		le16_t rlen = radiotapHdr->len_;
-		// GTRACE("radiotapHdr->len_=%u\n", rlen); // gilgil temp
+		// ----- gilgil temp -----
+		GTRACE("radiotapHdr->len_=%u\n", rlen);
+		if (rlen == _config.rt_.mysending) {
+			GTRACE("my sending\n");
+		}
+		// -----------------------
 		if (rlen == _config.rt_.ignore_) continue;
 		size -= radiotapHdr->len_;
 
@@ -240,12 +245,14 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		seqInfos.realInfo_ = seqInfo;
 	}
 	if (seqInfos.isOk()) {
-		uint64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.myInfo_.tv_);
+		int64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.myInfo_.tv_);
 		if (diffTime > _config.tooOldSeqCompareInterval_) { // my is too old
+			GTRACE("i am too old %ld\n", diffTime);
 			seqInfos.myInfo_.clear();
 			return;
 		}
 		if (diffTime < -_config.tooOldSeqCompareInterval_) { // real is too old
+			GTRACE("real is too old %ld\n", diffTime);
 			seqInfos.realInfo_.clear();
 			return;
 		}
@@ -285,8 +292,8 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		}
 		assert(!(lastMyTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
 
-		uint64_t changeOffset = getDiffTime(lastRealTv, lastMyTv);
-		uint64_t changeInterval = (getDiffTime(lastRealTv, lastRealTv) - getDiffTime(lastMyTv, firstMyTv)) / seqMap.okCount_;
+		int64_t changeOffset = getDiffTime(lastRealTv, lastMyTv);
+		int64_t changeInterval = (getDiffTime(lastRealTv, lastRealTv) - getDiffTime(lastMyTv, firstMyTv)) / seqMap.okCount_;
 
 		apInfo.adjustOffset(Diff(changeOffset));
 		apInfo.adjustInterval(Diff(changeInterval));
