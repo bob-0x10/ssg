@@ -91,6 +91,53 @@ void sendThreadProc2(std::string interface, SendStruct ss, uint32_t writeLen) {
 	}
 
 	const u_char* p = (const u_char*)&ss;
+	BeaconHdr* beaconHdr = PBeaconHdr(p + sizeof(RadiotapHdr));
+	Diff interval = Diff(beaconHdr->fix_.beaconInterval_ * 1023995);
+	//interval = Diff(5000000000); // 5 sec // gilgil temp 2020.11.01
+	GTRACE("interval=%ld\n", interval.count());
+
+	//std::this_thread::sleep_for(interval);
+	Clock next= Timer::now();
+	while (true) {
+		Clock now = Timer::now();
+		if (adjust != Diff(0)) {
+			next += adjust;
+			adjust = Diff(0);
+		}
+		if (now < next) {
+			// continue; // gilgil temp 2020.11.04
+			Diff remain = next - now;
+			remain /= 2;
+			remain -= Diff(20000000); // 20 millisecond
+			//GTRACE("remain=%ld\n", remain.count());
+			if (remain.count() > 0)
+				std::this_thread::sleep_for(remain);
+			continue;
+		}
+		beaconHdr->seq_ += 1;
+		for (int i = 0; i < 1; i++) {
+			//GTRACE("sending seq=%u\n", beaconHdr->seq_); // gilgil temp
+			int res = pcap_sendpacket(handle, p, writeLen);
+			if (res != 0) {
+				GTRACE("pacp_sendpacket return %d - %s handle=%p writeLen=%u\n", res, pcap_geterr(handle), handle, writeLen);
+				exit(-1);
+			}
+		}
+		next += interval;
+	}
+	GTRACE("sendThreadProc2 end\n");
+}
+
+void sendThreadProc3(std::string interface, SendStruct ss, uint32_t writeLen) {
+	GTRACE("sendThreadProc3 beg\n");
+	char errbuf[PCAP_ERRBUF_SIZE];
+	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
+	if (handle == nullptr) {
+		fprintf(stderr, "pcap_open_live(%s) return null - %s\n", interface.c_str(), errbuf);
+		return;
+	}
+
+	const u_char* p = (const u_char*)&ss;
 	Diff sleepTime = std::chrono::milliseconds(1);
 	while (true) {
 		int res = pcap_sendpacket(handle, p, writeLen);
@@ -100,7 +147,7 @@ void sendThreadProc2(std::string interface, SendStruct ss, uint32_t writeLen) {
 		}
 		std::this_thread::sleep_for(sleepTime);
 	}
-	GTRACE("sendThreadProc2 end\n");
+	GTRACE("sendThreadProc3 end\n");
 }
 
 ApMap apMap;
@@ -178,11 +225,11 @@ void scanThreadProc(std::string interface, Mac apMac) {
 			BeaconHdr* sendBeaconHdr = PBeaconHdr(p + sendRadiotapHdr->len_);
 			uint32_t writeLen = header->caplen - (radiotapHdr->len_ - sizeof(RadiotapHdr));
 			memcpy(sendBeaconHdr, beaconHdr, writeLen);
-			sendThread_ = new std::thread(sendThreadProc, interface, ss, writeLen); sendThread_->detach(); // gilgil temp 2020.11.03
+			sendThread_ = new std::thread(sendThreadProc2, interface, ss, writeLen); sendThread_->detach(); // gilgil temp 2020.11.03
 			// sendThread_ = new std::thread(sendThreadProc2, interface, ss, writeLen); sendThread_->detach();
 			status = Adjusting;
 		} else {
-			// continue; // gilgil temp
+			continue; // gilgil temp
 			if (blen == 13) continue;
 
 			if (beaconHdr->bssid() != apMac) continue;
@@ -195,7 +242,7 @@ void scanThreadProc(std::string interface, Mac apMac) {
 				apMap.insert(std::make_pair(key, val_new));
 			} else {
 				static int count = 0;
-				if (count++ % 10 == 5) {
+				if (count++ % 1 == 0) {
 					Val val_old = it->second;
 					if (val_old.bitmap_ != val_new.bitmap_) {
 						int64_t diff = getDiffTime(val_new.tv_, val_old.tv_); // plus(greater than 0)
@@ -205,17 +252,13 @@ void scanThreadProc(std::string interface, Mac apMac) {
 							apMap.insert(std::make_pair(key, val_new)); // insert new
 							continue;
 						}
-						diff -= 500; // 0.5 usec // gilgil temp
+						//diff = 5; // 0.5 usec // gilgil temp
 						if (val_old.bitmap_ ==0xFF) { // old-my new-real
-							//
 							// fast
-							//
 							adjust = Diff(diff * 1000);
 							fprintf(stderr, "fast seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, -diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 						} else {
-							//
 							// slow
-							//
 							adjust = -Diff(diff * 1000);
 							fprintf(stderr, "slow seq=%u diff=%6ld oldlen=%2u newlen=%2u oldbm=%3u newbm=%3u\n", key, diff, val_old.len_, val_new.len_, val_old.bitmap_, val_new.bitmap_);
 						}
