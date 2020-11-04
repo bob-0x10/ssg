@@ -45,8 +45,8 @@ TEST(Mac, castingTest) {
 	Mac mac("00:11:22:33:44:55");
 
 	uint8_t buf[Mac::SIZE];
-	memcpy(buf, mac, Mac::SIZE); // operator uint8_t*()
-	EXPECT_TRUE(memcmp(buf, mac, Mac::SIZE) == 0);
+	memcpy(buf, (uint8_t*)mac, Mac::SIZE); // operator uint8_t*()
+	EXPECT_TRUE(memcmp(buf, (uint8_t*)mac, Mac::SIZE) == 0);
 
 	std::string s = std::string(mac); // explicit operator std::string()
 

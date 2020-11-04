@@ -17,7 +17,7 @@ struct Mac final {
 	//
 	// casting operator
 	//
-	operator uint8_t*() const { return const_cast<uint8_t*>(mac_); } // default
+	explicit operator uint8_t*() const { return const_cast<uint8_t*>(mac_); }
 	explicit operator std::string() const;
 
 	//
