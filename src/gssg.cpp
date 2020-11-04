@@ -98,10 +98,10 @@ void Ssg::scanThread() {
 		if (radiotapHdr == nullptr) continue;
 		le16_t rlen = radiotapHdr->len_;
 		// ----- gilgil temp -----
-		GTRACE("radiotapHdr->len_=%u\n", rlen);
-		if (rlen == _config.rt_.mysending) {
-			GTRACE("my sending\n");
-		}
+		//GTRACE("radiotapHdr->len_=%u\n", rlen);
+		//if (rlen == _config.rt_.mysending) {
+		//	GTRACE("my sending\n");
+		//}
 		// -----------------------
 		if (rlen == _config.rt_.ignore_) continue;
 		size -= radiotapHdr->len_;
@@ -189,11 +189,15 @@ void Ssg::sendThread() {
 				apInfo.beaconFrame_.beaconHdr_.seq_ = seq++;
 
 				apInfo.beaconFrame_.send(handle);
+				// ----- gilgil temp -----
+				/*
 				{
 					std::string bssid = std::string(it->first);
 					GTRACE("beacon sent %s seq=%d\n", bssid.c_str(), seq); // gilgil temp
 					apInfo.nextFrameSent_ = now + apInfo.sendInterval_;
 				}
+				*/
+				// -----------------------
 			}
 		}
 
