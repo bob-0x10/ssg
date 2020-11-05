@@ -1,13 +1,12 @@
 if [ $# -lt 2 ]; then
 	echo "syntax : beacon-test.sh <interface> <ap mac> [<bitmap>]"
-	echo "sample : beacon-test.sh mon0 00:00:00:11:11:11"
+	echo "sample : beacon-test.sh mon0 00:00:00:11:11:11 \"!(radiotap.length==13)\""
 	exit 1
 fi
 INTERFACE="$1"
 AP_MAC="$2"
 
 FILTER="wlan.addr==$AP_MAC && wlan.fc.type_subtype==8"
-#FILTER+="!(radiotap.length==13)"
 if [ $# -eq 3 ]; then
 	FILTER+=" && ($3)"
 fi
