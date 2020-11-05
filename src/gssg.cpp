@@ -133,6 +133,7 @@ void Ssg::scanThread() {
 			ApMap::iterator it = apMap_.find(bssid);
 
 			if (it == apMap_.end()) {
+				GTRACE("New AP(%s) added\n", std::string(bssid).c_str());
 				tim->control_ = _config.tim_.control_;
 				tim->bitmap_ = _config.tim_.bitmap_;
 				ApInfo apInfo;
@@ -181,7 +182,8 @@ void Ssg::sendThread() {
 			}
 			if (apInfo.adjustInterval_ != Diff(0)) {
 				apInfo.sendInterval_ += apInfo.adjustInterval_;
-				GTRACE("adjustInterval=%ld sendInterval=%ld\n", apInfo.adjustInterval_.count(), apInfo.sendInterval_.count());
+				std::string bssid = std::string(it->first);
+				GTRACE("%s sendInterval=%ld\n", bssid.c_str(), apInfo.sendInterval_.count());
 				apInfo.adjustInterval_ = Diff(0);
 			}
 			if (now >= apInfo.nextFrameSent_) {
