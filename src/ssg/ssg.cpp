@@ -16,7 +16,8 @@ int main(int argc, char* argv[]) {
 	if (argc == 3) filter = std::string(argv[2]);
 
 	Ssg ssg(interface, filter);
-	ssg.open();
+	if (!ssg.open())
+		exit(-1);
 
 	while (true) {
 		int64_t adjustOffset = 0;

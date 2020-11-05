@@ -72,6 +72,7 @@ bool RadiotapHdr::LenghChecker::check(std::string interface) {
 		uint32_t size = header->caplen;
 		RadiotapHdr* radiotapHdr = RadiotapHdr::check(pchar(packet), size);
 		if (radiotapHdr == nullptr) continue;
+		if (radiotapHdr->len_ == send_) continue; // my own sending packet by other process
 		size -= radiotapHdr->len_;
 
 		Dot11Hdr* dot11Hdr = Dot11Hdr::check(radiotapHdr, size);
