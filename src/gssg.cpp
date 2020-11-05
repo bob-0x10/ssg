@@ -21,12 +21,12 @@ void Ssg::BeaconFrame::send(pcap_t* handle) {
 	}
 }
 
-void Ssg::ApInfo::adjustOffset(Diff changeOffset) {
-	adjustOffset_ = changeOffset;
+void Ssg::ApInfo::adjustOffset(Diff adjustOffset) {
+	adjustOffset_ = adjustOffset;
 }
 
-void Ssg::ApInfo::adjustInterval(Diff changeInterval) {
-	adjustInterval_ = changeInterval;
+void Ssg::ApInfo::adjustInterval(Diff adjustInterval) {
+	adjustInterval_ = adjustInterval;
 }
 
 bool Ssg::open() {
@@ -116,7 +116,7 @@ void Ssg::scanThread() {
 		if (typeSubtype == Dot11Hdr::QosNull) {
 			QosNullHdr* qosNullHdr = QosNullHdr::check(dot11Hdr, size);
 			if (qosNullHdr == nullptr) continue;
-			processQosNull(qosNullHdr);
+			// processQosNull(qosNullHdr); // gilgil temp
 			continue;
 		}
 
@@ -182,6 +182,7 @@ void Ssg::sendThread() {
 			if (apInfo.adjustInterval_ != Diff(0)) {
 				apInfo.sendInterval_ += apInfo.adjustInterval_;
 				apInfo.adjustInterval_ = Diff(0);
+				GTRACE("adjustInterval=%ld sendInterval=%ld\n", apInfo.adjustInterval_.count(), apInfo.sendInterval_.count());
 			}
 			if (now >= apInfo.nextFrameSent_) {
 				le16_t seq = apInfo.beaconFrame_.beaconHdr_.seq_;
@@ -190,14 +191,13 @@ void Ssg::sendThread() {
 
 				apInfo.beaconFrame_.send(handle);
 				// ----- gilgil temp -----
-				/*
-				{
-					std::string bssid = std::string(it->first);
-					GTRACE("beacon sent %s seq=%d\n", bssid.c_str(), seq); // gilgil temp
-					apInfo.nextFrameSent_ = now + apInfo.sendInterval_;
-				}
-				*/
+				//{
+				//	std::string bssid = std::string(it->first);
+				//	GTRACE("sending beacon %s seq=%d\n", bssid.c_str(), seq); // gilgil temp
+				//	apInfo.nextFrameSent_ = now + apInfo.sendInterval_;
+				//}
 				// -----------------------
+				apInfo.nextFrameSent_ += apInfo.sendInterval_;
 			}
 		}
 
@@ -270,8 +270,8 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		// 102 1030 1018
 		// 103 1040 1027
 		//
-		// changeOffset = -13 : (1027- 1040)
-		// changeInterval = -1 : ((1027 - 1000) - (1040 - 1010)) / 3
+		// adjustOffset = -13 : (1027- 1040)
+		// adjustInterval = -1 : ((1027 - 1000) - (1040 - 1010)) / 3
 		//
 		timeval firstMyTv{0,0}, firstRealTv{0,0};
 		for (SeqMap::iterator it = seqMap.begin(); it != seqMap.end(); it++) {
@@ -295,13 +295,12 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		}
 		assert(!(lastMyTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
 
-		int64_t changeOffset = getDiffTime(lastRealTv, lastMyTv);
+		int64_t adjustOffset = getDiffTime(lastRealTv, lastMyTv);
 		assert(seqMap.okCount_ > 1);
-		int64_t changeInterval = (getDiffTime(lastRealTv, lastRealTv) - getDiffTime(lastMyTv, firstMyTv)) / seqMap.okCount_ - 1;
-
-		apInfo.adjustOffset(Diff(changeOffset));
-		//apInfo.adjustInterval(Diff(changeInterval));
-		GTRACE("changeOffset=%ld changeInterval=%ld\n", changeOffset, changeInterval);
+		int64_t adjustInterval = (getDiffTime(lastRealTv, firstRealTv) - getDiffTime(lastMyTv, firstMyTv)) / (seqMap.okCount_ - 1);
+		apInfo.adjustOffset(Diff(adjustOffset));
+		apInfo.adjustInterval(Diff(adjustInterval));
+		GTRACE("adjustOffset=%ld adjustInterval=%ld\n", adjustOffset, adjustInterval);
 		seqMap.clear();
 	}
 }

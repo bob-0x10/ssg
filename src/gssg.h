@@ -67,8 +67,8 @@ struct Ssg { // Station Signal Generator
 
 		Diff adjustOffset_{Diff(0)}; // atomic
 		Diff adjustInterval_{Diff(0)}; // atomic
-		void adjustOffset(Diff changeOffset);
-		void adjustInterval(Diff changeInterval);
+		void adjustOffset(Diff adjustOffset);
+		void adjustInterval(Diff adjustInterval);
 	};
 
 	struct ApMap : std::unordered_map<Mac, ApInfo>  {
