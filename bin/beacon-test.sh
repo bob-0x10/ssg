@@ -6,10 +6,10 @@ fi
 INTERFACE="$1"
 AP_MAC="$2"
 
-#FILTER="!(radiotap.length==13) && wlan.addr==$AP_MAC && wlan.fc.type_subtype==8"
 FILTER="wlan.addr==$AP_MAC && wlan.fc.type_subtype==8"
+#FILTER+="!(radiotap.length==13)"
 if [ $# -eq 3 ]; then
-	FILTER+=" && wlan.tim.bmapctl==$3"
+	FILTER+=" && ($3)"
 fi
 
 echo "FILTER="$FILTER

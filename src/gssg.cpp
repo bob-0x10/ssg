@@ -136,7 +136,7 @@ void Ssg::scanThread() {
 				tim->control_ = _config.tim_.control_;
 				tim->bitmap_ = _config.tim_.bitmap_;
 				ApInfo apInfo;
-				if (!apInfo.beaconFrame_.init(beaconHdr, size)) continue;
+				if (!apInfo.beaconFrame_.init(beaconHdr, _config.rt_.send_ + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
 				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
 				apMap_.insert({bssid, apInfo});
@@ -181,8 +181,8 @@ void Ssg::sendThread() {
 			}
 			if (apInfo.adjustInterval_ != Diff(0)) {
 				apInfo.sendInterval_ += apInfo.adjustInterval_;
-				apInfo.adjustInterval_ = Diff(0);
 				GTRACE("adjustInterval=%ld sendInterval=%ld\n", apInfo.adjustInterval_.count(), apInfo.sendInterval_.count());
+				apInfo.adjustInterval_ = Diff(0);
 			}
 			if (now >= apInfo.nextFrameSent_) {
 				le16_t seq = apInfo.beaconFrame_.beaconHdr_.seq_;
@@ -264,14 +264,14 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	}
 	if (seqMap.okCount_ >= _config.beaconAdjustCount_) {
 		//
-		// seq my   real
+		// seq send real
 		// 100 1010 1000
-		// 101 1019 1009
-		// 102 1030 1018
-		// 103 1040 1027
+		// 101 1019 1011
+		// 102 1030 1022
+		// 103 1040 1033
 		//
-		// adjustOffset = -13 : (1027- 1040)
-		// adjustInterval = -1 : ((1027 - 1000) - (1040 - 1010)) / 3
+		// adjustOffset = -13 : (1033- 1040)
+		// adjustInterval = -1 : ((1033 - 1000) - (1040 - 1010)) / 3
 		//
 		timeval firstSendTv{0,0}, firstRealTv{0,0};
 		for (SeqMap::iterator it = seqMap.begin(); it != seqMap.end(); it++) {
@@ -295,11 +295,11 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		}
 		assert(!(lastSendTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
 
-		int64_t adjustOffset = getDiffTime(lastRealTv, lastSendTv);
+		int64_t adjustOffset = getDiffTime(lastRealTv, lastSendTv) * 1000; // nsec
 		assert(seqMap.okCount_ > 1);
 		int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
 		int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
-		int64_t adjustInterval = (realDiff - sendDiff) / (seqMap.okCount_ - 1);
+		int64_t adjustInterval = (realDiff - sendDiff) * 1000 / (seqMap.okCount_ - 1); // nsec
 		apInfo.adjustOffset(Diff(adjustOffset));
 		apInfo.adjustInterval(Diff(adjustInterval));
 		GTRACE("realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", realDiff, sendDiff, adjustOffset, adjustInterval);
