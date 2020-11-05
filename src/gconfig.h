@@ -4,8 +4,8 @@
 
 struct Config {
 	struct RadioTapHdrLengthOption {
-		le16_t normal_{18};
-		le16_t mysending{sizeof(RadiotapHdr)};
+		le16_t real_{18};
+		le16_t send_{sizeof(RadiotapHdr)};
 		le16_t ignore_{13};
 	} rt_;
 	struct TrafficIndicationMapOption {

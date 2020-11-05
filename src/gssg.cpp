@@ -99,7 +99,7 @@ void Ssg::scanThread() {
 		le16_t rlen = radiotapHdr->len_;
 		// ----- gilgil temp -----
 		//GTRACE("radiotapHdr->len_=%u\n", rlen);
-		//if (rlen == _config.rt_.mysending) {
+		//if (rlen == _config.rt_.send_) {
 		//	GTRACE("my sending\n");
 		//}
 		// -----------------------
@@ -242,17 +242,17 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	}
 	SeqInfos& seqInfos = it->second;
 
-	bool myPacket = seqInfo.control_ == _config.tim_.control_ && seqInfo.bitmap_ == _config.tim_.bitmap_;
-	if (myPacket) {
-		seqInfos.myInfo_ = seqInfo;
+	bool sendPacket = seqInfo.control_ == _config.tim_.control_ && seqInfo.bitmap_ == _config.tim_.bitmap_;
+	if (sendPacket) {
+		seqInfos.sendInfo_ = seqInfo;
 	} else {
 		seqInfos.realInfo_ = seqInfo;
 	}
 	if (seqInfos.isOk()) {
-		int64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.myInfo_.tv_);
-		if (diffTime > _config.tooOldSeqCompareInterval_) { // my is too old
-			GTRACE("i am too old %ld\n", diffTime);
-			seqInfos.myInfo_.clear();
+		int64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.sendInfo_.tv_);
+		if (diffTime > _config.tooOldSeqCompareInterval_) { // send is too old
+			GTRACE("send is too old %ld\n", diffTime);
+			seqInfos.sendInfo_.clear();
 			return;
 		}
 		if (diffTime < -_config.tooOldSeqCompareInterval_) { // real is too old
@@ -273,36 +273,36 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		// adjustOffset = -13 : (1027- 1040)
 		// adjustInterval = -1 : ((1027 - 1000) - (1040 - 1010)) / 3
 		//
-		timeval firstMyTv{0,0}, firstRealTv{0,0};
+		timeval firstSendTv{0,0}, firstRealTv{0,0};
 		for (SeqMap::iterator it = seqMap.begin(); it != seqMap.end(); it++) {
 			SeqInfos& seqInfos = it->second;
 			if (seqInfos.isOk()) {
-				firstMyTv = seqInfos.myInfo_.tv_;
+				firstSendTv = seqInfos.sendInfo_.tv_;
 				firstRealTv = seqInfos.realInfo_.tv_;
 				break;
 			}
 		}
-		assert(!(firstMyTv.tv_sec == 0 && firstMyTv.tv_usec == 0));
+		assert(!(firstSendTv.tv_sec == 0 && firstSendTv.tv_usec == 0));
 
-		timeval lastMyTv{0,0}, lastRealTv{0,0};
+		timeval lastSendTv{0,0}, lastRealTv{0,0};
 		for (SeqMap::reverse_iterator it = seqMap.rbegin(); it != seqMap.rend(); it++) {
 			SeqInfos& seqInfos = it->second;
 			if (seqInfos.isOk()) {
-				lastMyTv = seqInfos.myInfo_.tv_;
+				lastSendTv = seqInfos.sendInfo_.tv_;
 				lastRealTv = seqInfos.realInfo_.tv_;
 				break;
 			}
 		}
-		assert(!(lastMyTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
+		assert(!(lastSendTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
 
-		int64_t adjustOffset = getDiffTime(lastRealTv, lastMyTv);
+		int64_t adjustOffset = getDiffTime(lastRealTv, lastSendTv);
 		assert(seqMap.okCount_ > 1);
 		int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
-		int64_t myDiff = getDiffTime(lastMyTv, firstMyTv);
-		int64_t adjustInterval = (realDiff - myDiff) / (seqMap.okCount_ - 1);
+		int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
+		int64_t adjustInterval = (realDiff - sendDiff) / (seqMap.okCount_ - 1);
 		apInfo.adjustOffset(Diff(adjustOffset));
 		apInfo.adjustInterval(Diff(adjustInterval));
-		GTRACE("realDiff=%ld myDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", realDiff, myDiff, adjustOffset, adjustInterval);
+		GTRACE("realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", realDiff, sendDiff, adjustOffset, adjustInterval);
 		seqMap.clear();
 	}
 }

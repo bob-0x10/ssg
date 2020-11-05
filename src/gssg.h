@@ -46,9 +46,9 @@ struct Ssg { // Station Signal Generator
 		}
 	};
 	struct SeqInfos {
-		bool isOk() { return realInfo_.ok_ && myInfo_.ok_; }
+		bool isOk() { return realInfo_.ok_ && sendInfo_.ok_; }
 		SeqInfo realInfo_;
-		SeqInfo myInfo_;
+		SeqInfo sendInfo_;
 	};
 
 	struct SeqMap : std::map<le16_t/*seq*/, SeqInfos> {
