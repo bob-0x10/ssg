@@ -10,6 +10,14 @@ struct RadiotapHdr {
 	le32_t present_;
 
 	static RadiotapHdr* check(char* p, uint32_t size);
+
+	struct LenghChecker {
+		le16_t real_{0};
+		le16_t send_{sizeof(RadiotapHdr)};
+		le16_t ignore_{0};
+		bool checked_{false};
+		bool check(std::string interface);
+	};
 };
 typedef RadiotapHdr *PRadiotapHdr;
 #pragma pack(pop)

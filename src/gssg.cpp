@@ -32,6 +32,8 @@ void Ssg::ApInfo::adjustInterval(Diff adjustInterval) {
 bool Ssg::open() {
 	if (active_) return false;
 
+	if (!lc_.check(interface_)) return false;
+
 	scanThread_ = new std::thread(_scanThread, this);
 	sendThread_ = new std::thread(_sendThread, this);
 
@@ -84,7 +86,7 @@ void Ssg::scanThread() {
 	}
 
 	while (active_) {
-		struct pcap_pkthdr* header;
+		pcap_pkthdr* header;
 		const u_char* packet;
 		int res = pcap_next_ex(handle, &header, &packet);
 		if (res == 0) continue;
@@ -103,7 +105,7 @@ void Ssg::scanThread() {
 		//	GTRACE("my sending\n");
 		//}
 		// -----------------------
-		if (rlen == _config.rt_.ignore_) continue;
+		if (rlen == lc_.ignore_) continue;
 		size -= radiotapHdr->len_;
 
 		Dot11Hdr* dot11Hdr = Dot11Hdr::check(radiotapHdr, size);
@@ -137,7 +139,7 @@ void Ssg::scanThread() {
 				tim->control_ = _config.tim_.control_;
 				tim->bitmap_ = _config.tim_.bitmap_;
 				ApInfo apInfo;
-				if (!apInfo.beaconFrame_.init(beaconHdr, _config.rt_.send_ + size)) continue;
+				if (!apInfo.beaconFrame_.init(beaconHdr, lc_.send_ + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
 				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
 				apMap_.insert({bssid, apInfo});
@@ -183,7 +185,7 @@ void Ssg::sendThread() {
 			if (apInfo.adjustInterval_ != Diff(0)) {
 				apInfo.sendInterval_ += apInfo.adjustInterval_;
 				std::string bssid = std::string(it->first);
-				GTRACE("%s sendInterval=%ld\n", bssid.c_str(), apInfo.sendInterval_.count());
+				printf("%s sendInterval=%ld\n", bssid.c_str(), apInfo.sendInterval_.count());
 				apInfo.adjustInterval_ = Diff(0);
 			}
 			if (now >= apInfo.nextFrameSent_) {
@@ -304,7 +306,10 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		int64_t adjustInterval = (realDiff - sendDiff) * 1000 / (seqMap.okCount_ - 1); // nsec
 		apInfo.adjustOffset(Diff(adjustOffset));
 		apInfo.adjustInterval(Diff(adjustInterval));
-		GTRACE("realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", realDiff, sendDiff, adjustOffset, adjustInterval);
+		{
+			std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid()); // gilgil temp
+			printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval); // gilgil temp
+		}
 		seqMap.clear();
 	}
 }
