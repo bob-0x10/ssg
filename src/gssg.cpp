@@ -101,7 +101,7 @@ void Ssg::scanThread() {
 		le16_t rlen = radiotapHdr->len_;
 		// ----- gilgil temp -----
 		//GTRACE("radiotapHdr->len_=%u\n", rlen);
-		//if (rlen == _config.rt_.send_) {
+		//if (rlen == option_.rt_.send_) {
 		//	GTRACE("my sending\n");
 		//}
 		// -----------------------
@@ -136,8 +136,8 @@ void Ssg::scanThread() {
 
 			if (it == apMap_.end()) {
 				GTRACE("New AP(%s) added\n", std::string(bssid).c_str());
-				tim->control_ = _config.tim_.control_;
-				tim->bitmap_ = _config.tim_.bitmap_;
+				tim->control_ = option_.tim_.control_;
+				tim->bitmap_ = option_.tim_.bitmap_;
 				ApInfo apInfo;
 				if (!apInfo.beaconFrame_.init(beaconHdr, lc_.send_ + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
@@ -206,7 +206,7 @@ void Ssg::sendThread() {
 		}
 
 		now = Timer::now();
-		Diff minWaitTime = Diff(_config.sendPollingTime_ * 2);
+		Diff minWaitTime = Diff(option_.sendPollingTime_ * 2);
 		for (ApMap::iterator it = apMap_.begin(); it != apMap_.end(); it++) {
 			ApInfo& apInfo = it->second;
 			Diff diff = apInfo.nextFrameSent_ - now;
@@ -216,7 +216,7 @@ void Ssg::sendThread() {
 		apMap_.mutex_.unlock();
 
 		minWaitTime /= 2;
-		minWaitTime -= Diff(_config.sendPollingTime_);
+		minWaitTime -= Diff(option_.sendPollingTime_);
 		if (minWaitTime > Diff(0))
 			std::this_thread::sleep_for(minWaitTime);
 	}
@@ -246,7 +246,7 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	}
 	SeqInfos& seqInfos = it->second;
 
-	bool sendPacket = seqInfo.control_ == _config.tim_.control_ && seqInfo.bitmap_ == _config.tim_.bitmap_;
+	bool sendPacket = seqInfo.control_ == option_.tim_.control_ && seqInfo.bitmap_ == option_.tim_.bitmap_;
 	if (sendPacket) {
 		seqInfos.sendInfo_ = seqInfo;
 	} else {
@@ -254,19 +254,19 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	}
 	if (seqInfos.isOk()) {
 		int64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.sendInfo_.tv_);
-		if (diffTime > _config.tooOldSeqCompareInterval_) { // send is too old
+		if (diffTime > option_.tooOldSeqCompareInterval_) { // send is too old
 			GTRACE("send is too old %ld\n", diffTime);
 			seqInfos.sendInfo_.clear();
 			return;
 		}
-		if (diffTime < -_config.tooOldSeqCompareInterval_) { // real is too old
+		if (diffTime < -option_.tooOldSeqCompareInterval_) { // real is too old
 			GTRACE("real is too old %ld\n", diffTime);
 			seqInfos.realInfo_.clear();
 			return;
 		}
 		seqMap.okCount_++;
 	}
-	if (seqMap.okCount_ >= _config.beaconAdjustCount_) {
+	if (seqMap.okCount_ >= option_.beaconAdjustCount_) {
 		//
 		// seq send real
 		// 100 1010 1000

@@ -9,7 +9,6 @@
 
 #include <pcap.h>
 #include "gbeaconhdr.h"
-#include "gconfig.h"
 #include "gqosnullhdr.h"
 
 typedef std::chrono::high_resolution_clock::time_point Clock;
@@ -17,6 +16,17 @@ typedef std::chrono::high_resolution_clock::duration Diff;
 typedef std::chrono::high_resolution_clock Timer;
 
 struct Ssg { // Station Signal Generator
+
+	struct {
+		struct TrafficIndicationMapOption {
+			le8_t control_{1};
+			le8_t bitmap_{0xFF};
+		} tim_;
+		int beaconAdjustCount_{10};
+		int64_t tooOldSeqCompareInterval_{10000000000}; // nsec (10 sec)
+		int64_t sendPollingTime_{1000000}; // nsec (1 msec)
+	} option_;
+
 	#pragma pack(push, 1)
 	struct BeaconFrame {
 		static const int DummySize = 8192;

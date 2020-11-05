@@ -10,7 +10,6 @@ DESTDIR = $${PWD}/../../bin
 HEADERS += \
 	../gbeaconhdr.h \
 	../gcommon.h \
-	../gconfig.h \
 	../gdot11hdr.h \
 	../gmac.h \
 	../gqosnullhdr.h \
@@ -21,7 +20,6 @@ HEADERS += \
 SOURCES += \
 	../gbeaconhdr.cpp \
 	../gcommon.cpp \
-	../gconfig.cpp \
 	../gdot11hdr.cpp \
 	../gmac.cpp \
 	../gqosnullhdr.cpp \
