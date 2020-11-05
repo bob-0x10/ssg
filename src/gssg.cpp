@@ -139,7 +139,7 @@ void Ssg::scanThread() {
 				tim->control_ = option_.tim_.control_;
 				tim->bitmap_ = option_.tim_.bitmap_;
 				ApInfo apInfo;
-				apInfo.seqMap_.firstOk_ = apInfo.seqMap_.end(); // gilgil temp
+				// apInfo.seqMap_.firstOk_ = apInfo.seqMap_.end(); // gilgil temp
 				if (!apInfo.beaconFrame_.init(beaconHdr, lc_.send_ + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
 				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
@@ -266,12 +266,12 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 			seqInfoPair.realInfo_.clear();
 			return;
 		}
-		if (seqMap.firstOk_ == seqMap.end())
-			seqMap.firstOk_ = it;
+		if (seqMap.firstIterator_ == seqMap.end())
+			seqMap.firstIterator_ = it;
 	}
 
-	if (seqMap.firstOk_ == seqMap.end()) return;
-	SeqInfoPair& first = seqMap.firstOk_->second;
+	if (seqMap.firstIterator_ == seqMap.end()) return;
+	SeqInfoPair& first = seqMap.firstIterator_->second;
 	SeqInfoPair& last = seqInfoPair;
 
 	bool adjust = false;
@@ -298,7 +298,7 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	timeval lastRealTv = last.realInfo_.tv_;
 	timeval lastSendTv = last.sendInfo_.tv_;
 
-	le16_t firstSeq = seqMap.firstOk_->first;
+	le16_t firstSeq = seqMap.firstIterator_->first;
 	le16_t lastSeq = seq;
 	int16_t seqDiff = int16_t(lastSeq - firstSeq);
 	assert(seqDiff != 0);

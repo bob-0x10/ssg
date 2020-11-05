@@ -62,9 +62,9 @@ struct Ssg { // Station Signal Generator
 	};
 
 	struct SeqMap : std::map<le16_t/*seq*/, SeqInfoPair> {
-		SeqMap::iterator firstOk_{end()};
+		SeqMap::iterator firstIterator_{end()};
 		void clear() {
-			firstOk_ = end();
+			firstIterator_ = end();
 			std::map<le16_t , SeqInfoPair>::clear();
 		}
 	};
