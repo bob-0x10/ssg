@@ -297,10 +297,12 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 
 		int64_t adjustOffset = getDiffTime(lastRealTv, lastMyTv);
 		assert(seqMap.okCount_ > 1);
-		int64_t adjustInterval = (getDiffTime(lastRealTv, firstRealTv) - getDiffTime(lastMyTv, firstMyTv)) / (seqMap.okCount_ - 1);
+		int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
+		int64_t myDiff = getDiffTime(lastMyTv, firstMyTv);
+		int64_t adjustInterval = (realDiff - myDiff) / (seqMap.okCount_ - 1);
 		apInfo.adjustOffset(Diff(adjustOffset));
 		apInfo.adjustInterval(Diff(adjustInterval));
-		GTRACE("adjustOffset=%ld adjustInterval=%ld\n", adjustOffset, adjustInterval);
+		GTRACE("realDiff=%ld myDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", realDiff, myDiff, adjustOffset, adjustInterval);
 		seqMap.clear();
 	}
 }
