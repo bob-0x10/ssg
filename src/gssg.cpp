@@ -139,6 +139,7 @@ void Ssg::scanThread() {
 				tim->control_ = option_.tim_.control_;
 				tim->bitmap_ = option_.tim_.bitmap_;
 				ApInfo apInfo;
+				apInfo.seqMap_.firstOk_ = apInfo.seqMap_.end(); // gilgil temp
 				if (!apInfo.beaconFrame_.init(beaconHdr, lc_.send_ + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
 				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
@@ -148,6 +149,7 @@ void Ssg::scanThread() {
 			}
 			ApInfo& apInfo = it->second;
 			SeqInfo seqInfo;
+			seqInfo.seq_ = beaconHdr->seq_;
 			seqInfo.ok_ = true;
 			seqInfo.tv_ = header->ts;
 			seqInfo.rlen_ = rlen;
@@ -239,79 +241,87 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	SeqMap& seqMap = apInfo.seqMap_;
 	SeqMap::iterator it = seqMap.find(seq);
 	if (it == seqMap.end()) {
-		SeqInfos seqInfos;
+		SeqInfoPair seqInfos;
 		seqMap.insert({seq, seqInfos});
 		it = seqMap.find(seq);
 		assert(it != seqMap.end());
 	}
-	SeqInfos& seqInfos = it->second;
+	SeqInfoPair& seqInfoPair = it->second;
 
 	bool sendPacket = seqInfo.control_ == option_.tim_.control_ && seqInfo.bitmap_ == option_.tim_.bitmap_;
-	if (sendPacket) {
-		seqInfos.sendInfo_ = seqInfo;
-	} else {
-		seqInfos.realInfo_ = seqInfo;
-	}
-	if (seqInfos.isOk()) {
-		int64_t diffTime = getDiffTime(seqInfos.realInfo_.tv_, seqInfos.sendInfo_.tv_);
+	if (sendPacket)
+		seqInfoPair.sendInfo_ = seqInfo;
+	else
+		seqInfoPair.realInfo_ = seqInfo;
+
+	if (seqInfoPair.isOk()) {
+		int64_t diffTime = getDiffTime(seqInfoPair.realInfo_.tv_, seqInfoPair.sendInfo_.tv_);
 		if (diffTime > option_.tooOldSeqCompareInterval_) { // send is too old
 			GTRACE("send is too old %ld\n", diffTime);
-			seqInfos.sendInfo_.clear();
+			seqInfoPair.sendInfo_.clear();
 			return;
 		}
 		if (diffTime < -option_.tooOldSeqCompareInterval_) { // real is too old
 			GTRACE("real is too old %ld\n", diffTime);
-			seqInfos.realInfo_.clear();
+			seqInfoPair.realInfo_.clear();
 			return;
 		}
-		seqMap.okCount_++;
+		if (seqMap.firstOk_ == seqMap.end())
+			seqMap.firstOk_ = it;
 	}
-	if (seqMap.okCount_ >= option_.beaconAdjustCount_) {
-		//
-		// seq send real
-		// 100 1010 1000
-		// 101 1019 1011
-		// 102 1030 1022
-		// 103 1040 1033
-		//
-		// adjustOffset = -13 : (1033- 1040)
-		// adjustInterval = -1 : ((1033 - 1000) - (1040 - 1010)) / 3
-		//
-		timeval firstSendTv{0,0}, firstRealTv{0,0};
-		for (SeqMap::iterator it = seqMap.begin(); it != seqMap.end(); it++) {
-			SeqInfos& seqInfos = it->second;
-			if (seqInfos.isOk()) {
-				firstSendTv = seqInfos.sendInfo_.tv_;
-				firstRealTv = seqInfos.realInfo_.tv_;
-				break;
-			}
-		}
-		assert(!(firstSendTv.tv_sec == 0 && firstSendTv.tv_usec == 0));
 
-		timeval lastSendTv{0,0}, lastRealTv{0,0};
-		for (SeqMap::reverse_iterator it = seqMap.rbegin(); it != seqMap.rend(); it++) {
-			SeqInfos& seqInfos = it->second;
-			if (seqInfos.isOk()) {
-				lastSendTv = seqInfos.sendInfo_.tv_;
-				lastRealTv = seqInfos.realInfo_.tv_;
-				break;
-			}
-		}
-		assert(!(lastSendTv.tv_sec == 0 && lastRealTv.tv_usec == 0));
+	if (seqMap.firstOk_ == seqMap.end()) return;
+	SeqInfoPair& first = seqMap.firstOk_->second;
+	SeqInfoPair& last = seqInfoPair;
 
-		int64_t adjustOffset = getDiffTime(lastRealTv, lastSendTv) * 1000; // nsec
-		assert(seqMap.okCount_ > 1);
-		int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
-		int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
-		int64_t adjustInterval = (realDiff - sendDiff) * 1000 / (seqMap.okCount_ - 1); // nsec
-		apInfo.adjustOffset(Diff(adjustOffset));
-		// apInfo.adjustInterval(Diff(adjustInterval)); // gilgil temp
-		{
-			std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid()); // gilgil temp
-			printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval); // gilgil temp
-		}
-		seqMap.clear();
+	bool adjust = false;
+	if (first.isOk() && last.isOk()) {
+		int64_t diff = getDiffTime(last.sendInfo_.tv_, first.sendInfo_.tv_);
+		if (diff > option_.seqAdjustInterval_)
+			adjust = true;
 	}
+	if (!adjust) return;
+
+	//
+	// seq send real
+	// 100 1010 1000
+	// 101 1019 1011
+	// 102 1030 1022
+	// 103 1040 1033
+	//
+	// adjustOffset = -13 : (1033- 1040)
+	// adjustInterval = -1 : ((1033 - 1000) - (1040 - 1010)) / 3
+	//
+
+	timeval firstRealTv = first.realInfo_.tv_;
+	timeval firstSendTv = first.sendInfo_.tv_;
+	timeval lastRealTv = last.realInfo_.tv_;
+	timeval lastSendTv = last.sendInfo_.tv_;
+
+	le16_t firstSeq = seqMap.firstOk_->first;
+	le16_t lastSeq = seq;
+	int16_t seqDiff = int16_t(lastSeq - firstSeq);
+	assert(seqDiff != 0);
+	if (seqDiff < 0) { // if sequence nuber overflowed
+		GTRACE("seq overflowed first=%d last=%d\n", firstSeq, lastSeq);
+		std::swap(firstSeq, lastSeq);
+		std::swap(firstRealTv, lastRealTv);
+		std::swap(firstSendTv, lastSendTv);
+	}
+
+	int64_t adjustOffset = getDiffTime(lastRealTv, lastSendTv) * 1000; // nsec
+
+	int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
+	int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
+	int64_t adjustInterval = (realDiff - sendDiff) * 1000 / seqDiff; // nsec
+	apInfo.adjustOffset(Diff(adjustOffset));
+	apInfo.adjustInterval(Diff(adjustInterval));
+	{
+		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid()); // gilgil temp
+		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval); // gilgil temp
+	}
+	seqMap.clear();
+
 }
 
 int64_t Ssg::getDiffTime(timeval tv1, timeval tv2) {

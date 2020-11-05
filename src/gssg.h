@@ -16,13 +16,12 @@ typedef std::chrono::high_resolution_clock::duration Diff;
 typedef std::chrono::high_resolution_clock Timer;
 
 struct Ssg { // Station Signal Generator
-
 	struct {
 		struct TrafficIndicationMapOption {
 			le8_t control_{1};
 			le8_t bitmap_{0xFF};
 		} tim_;
-		int beaconAdjustCount_{100};
+		int64_t seqAdjustInterval_{10000000000}; // nsec (10 sec)
 		int64_t tooOldSeqCompareInterval_{10000000000}; // nsec (10 sec)
 		int64_t sendPollingTime_{1000000}; // nsec (1 msec)
 	} option_;
@@ -41,6 +40,7 @@ struct Ssg { // Station Signal Generator
 	#pragma pack(pop)
 
 	struct SeqInfo {
+		le16_t seq_;
 		bool ok_{false};
 		timeval tv_;
 		le16_t rlen_; // radiotap len;
@@ -55,17 +55,17 @@ struct Ssg { // Station Signal Generator
 			bitmap_ = 0;
 		}
 	};
-	struct SeqInfos {
+	struct SeqInfoPair {
 		bool isOk() { return realInfo_.ok_ && sendInfo_.ok_; }
 		SeqInfo realInfo_;
 		SeqInfo sendInfo_;
 	};
 
-	struct SeqMap : std::map<le16_t/*seq*/, SeqInfos> {
-		int okCount_{0};
+	struct SeqMap : std::map<le16_t/*seq*/, SeqInfoPair> {
+		SeqMap::iterator firstOk_{end()};
 		void clear() {
-			okCount_ = 0;
-			std::map<le16_t , SeqInfos>::clear();
+			firstOk_ = end();
+			std::map<le16_t , SeqInfoPair>::clear();
 		}
 	};
 
