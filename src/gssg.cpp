@@ -159,7 +159,7 @@ void Ssg::scanThread() {
 			seqInfo.rlen_ = rlen;
 			seqInfo.control_ = tim->control_;
 			seqInfo.bitmap_ = tim->bitmap_;
-			if (rlen == lc_.real_) apInfo.lastAccess_ = Timer::now();
+            if (rlen != lc_.send_) apInfo.lastAccess_ = Timer::now();
 			processAdjust(apInfo, beaconHdr->seq_, seqInfo);
 		}
 	}
