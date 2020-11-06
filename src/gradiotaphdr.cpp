@@ -3,12 +3,17 @@
 RadiotapHdr* RadiotapHdr::check(char* p, uint32_t size) {
 	RadiotapHdr* radiotapHdr = PRadiotapHdr(p);
 	le16_t len = radiotapHdr->len_;
+	// ----- gilgil temp 2020.11.06 -----
+	/*
 	if (len != sizeof(RadiotapHdr) && len != 18 && len != 13) { // gilgil temp
 		char* end = p + size;
 		GTRACE("invalid radiotap header len %u %p %p\n", len, (void*)radiotapHdr, (void*)end);
 		dump(puchar(p), size);
 		return nullptr;
 	}
+	*/
+	// ----------------------------------
+	if (len < sizeof(RadiotapHdr) || len > size) return nullptr;
 	return radiotapHdr;
 }
 
@@ -17,6 +22,7 @@ RadiotapHdr* RadiotapHdr::check(char* p, uint32_t size) {
 bool RadiotapHdr::LenghChecker::check(std::string interface) {
 	if (checked_) return true;
 
+	GTRACE("RadiotapHdr Length Checking...\n");
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface.c_str(), BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
@@ -53,13 +59,25 @@ bool RadiotapHdr::LenghChecker::check(std::string interface) {
 	packet.nullHdr_.seq_ = 0;
 	packet.nullHdr_.qosControl_ = 0;
 
-	int res = pcap_sendpacket(handle, (const u_char*)&packet, sizeof(Packet));
-	if (res != 0) {
-		GTRACE("pacp_sendpacket return %d - %s handle=%p\n", res, pcap_geterr(handle), handle);
-		return false;
-	}
-
+	Clock start = Timer::now();
+	Clock lastSent = Clock(Diff(0));
 	while (true) {
+		Clock now = Timer::now();
+		Diff diff = now - start;
+		if (diff >= Diff(std::chrono::seconds(8))) {
+			GTRACE("can not check radio tap length(real=%u send=%d ignore=%d)\n", real_, send_, ignore_);
+			return false;
+		}
+		diff = now - lastSent;
+		if (diff >= Diff(std::chrono::seconds(1))) {
+			int res = pcap_sendpacket(handle, (const u_char*)&packet, sizeof(Packet));
+			if (res != 0) {
+				GTRACE("pacp_sendpacket return %d - %s handle=%p\n", res, pcap_geterr(handle), handle);
+				return false;
+			}
+			lastSent = now;
+		}
+
 		pcap_pkthdr* header;
 		const u_char* packet;
 		int res = pcap_next_ex(handle, &header, &packet);
@@ -96,7 +114,8 @@ bool RadiotapHdr::LenghChecker::check(std::string interface) {
 
 		if (real_ != 0 && ignore_ != 0) break;
 	}
-	GTRACE("real=%d send=%d ignore=%d\n", real_, send_, ignore_);
+	GTRACE("RadiotapHdr Length Checking completed real=%d send=%d ignore=%d\n", real_, send_, ignore_);
 	checked_ = true;
+	pcap_close(handle);
 	return true;
 }

@@ -36,6 +36,7 @@ bool Ssg::open() {
 
 	scanThread_ = new std::thread(_scanThread, this);
 	sendThread_ = new std::thread(_sendThread, this);
+	deleteThread_ = new std::thread(_deleteThread, this);
 
 	active_ = true;
 	return true;
@@ -52,6 +53,10 @@ bool Ssg::close() {
 	sendThread_->join();
 	delete sendThread_;
 	sendThread_ = nullptr;
+
+	deleteThread_->join();
+	delete deleteThread_;
+	deleteThread_ = nullptr;
 
 	return true;
 }
@@ -139,7 +144,6 @@ void Ssg::scanThread() {
 				tim->control_ = option_.tim_.control_;
 				tim->bitmap_ = option_.tim_.bitmap_;
 				ApInfo apInfo;
-				// apInfo.seqMap_.firstOk_ = apInfo.seqMap_.end(); // gilgil temp
 				if (!apInfo.beaconFrame_.init(beaconHdr, lc_.send_ + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
 				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
@@ -155,6 +159,7 @@ void Ssg::scanThread() {
 			seqInfo.rlen_ = rlen;
 			seqInfo.control_ = tim->control_;
 			seqInfo.bitmap_ = tim->bitmap_;
+			if (rlen == lc_.real_) apInfo.lastAccess_ = Timer::now();
 			processAdjust(apInfo, beaconHdr->seq_, seqInfo);
 		}
 	}
@@ -226,6 +231,34 @@ void Ssg::sendThread() {
 	GTRACE("sendThread end\n");
 }
 
+void Ssg::_deleteThread(Ssg* ssg) {
+	ssg->deleteThread();
+}
+
+void Ssg::deleteThread() {
+	GTRACE("deleteThread beg\n");
+	while (active_) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		Clock now = Timer::now();
+		apMap_.mutex_.lock();
+		ApMap::iterator it = apMap_.begin();
+		while (true) {
+			if (it == apMap_.end()) break;
+			ApInfo& apInfo = it->second;
+			Diff diff = now - apInfo.lastAccess_;
+			// std::string bssid = std::string(it->first); GTRACE("%s diff=%ld\n", bssid.c_str(), diff.count()); // gilgil temp
+			if (diff > Diff(option_.deleteOldApTimeout_)) {
+				std::string bssid = std::string(it->first);
+				it = apMap_.erase(it);
+				GTRACE("%s Delete old AP\n", bssid.c_str());
+			} else
+				it++;
+		}
+		apMap_.mutex_.unlock();
+	}
+	GTRACE("deleteThread end\n");
+}
+
 void Ssg::processQosNull(QosNullHdr* qosNullHdr) {
 	apMap_.mutex_.lock();
 	Mac bssid = qosNullHdr->bssid();
@@ -266,11 +299,14 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 			seqInfoPair.realInfo_.clear();
 			return;
 		}
-		if (seqMap.firstIterator_ == seqMap.end())
+		if (!seqMap.firstOk_) {
+			seqMap.firstOk_ = true;
 			seqMap.firstIterator_ = it;
+		}
 	}
 
-	if (seqMap.firstIterator_ == seqMap.end()) return;
+	if (!seqMap.firstOk_) return;
+	assert(seqMap.firstIterator_ != seqMap.end());
 	SeqInfoPair& first = seqMap.firstIterator_->second;
 	SeqInfoPair& last = seqInfoPair;
 
@@ -317,8 +353,8 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	apInfo.adjustOffset(Diff(adjustOffset));
 	apInfo.adjustInterval(Diff(adjustInterval));
 	{
-		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid()); // gilgil temp
-		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval); // gilgil temp
+		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
+		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval);
 	}
 	seqMap.clear();
 

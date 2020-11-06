@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <map>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -11,19 +10,16 @@
 #include "gbeaconhdr.h"
 #include "gqosnullhdr.h"
 
-typedef std::chrono::high_resolution_clock::time_point Clock;
-typedef std::chrono::high_resolution_clock::duration Diff;
-typedef std::chrono::high_resolution_clock Timer;
-
 struct Ssg { // Station Signal Generator
 	struct {
 		struct TrafficIndicationMapOption {
 			le8_t control_{1};
 			le8_t bitmap_{0xFF};
 		} tim_;
-		int64_t seqAdjustInterval_{10000000000}; // nsec (10 sec)
+		int64_t seqAdjustInterval_{10000000}; // usec (10 sec)
 		int64_t tooOldSeqCompareInterval_{10000000000}; // nsec (10 sec)
 		int64_t sendPollingTime_{1000000}; // nsec (1 msec)
+		int64_t deleteOldApTimeout_{1000000000}; // nsec (15 sec)
 	} option_;
 
 	#pragma pack(push, 1)
@@ -61,11 +57,13 @@ struct Ssg { // Station Signal Generator
 		SeqInfo sendInfo_;
 	};
 
-	struct SeqMap : std::map<le16_t/*seq*/, SeqInfoPair> {
-		SeqMap::iterator firstIterator_{end()};
+	struct SeqMap : std::unordered_map<le16_t/*seq*/, SeqInfoPair> {
+		bool firstOk_{false};
+		SeqMap::iterator firstIterator_;
 		void clear() {
-			firstIterator_ = end();
-			std::map<le16_t , SeqInfoPair>::clear();
+			firstOk_ = false;
+			firstIterator_ = end(); // meaningless
+			std::unordered_map<le16_t , SeqInfoPair>::clear();
 		}
 	};
 
@@ -73,6 +71,7 @@ struct Ssg { // Station Signal Generator
 		BeaconFrame beaconFrame_;
 		Diff sendInterval_{Diff(0)}; // atomic
 		Clock nextFrameSent_{std::chrono::seconds(0)};
+		Clock lastAccess_{std::chrono::seconds(0)};
 		SeqMap seqMap_;
 
 		Diff adjustOffset_{Diff(0)}; // atomic
@@ -105,6 +104,10 @@ struct Ssg { // Station Signal Generator
 	std::thread* sendThread_{nullptr};
 	static void _sendThread(Ssg* ssg);
 	void sendThread();
+
+	std::thread* deleteThread_{nullptr};
+	static void _deleteThread(Ssg* ssg);
+	void deleteThread();
 
 protected:
 	void processQosNull(QosNullHdr* qosNullHdr);
