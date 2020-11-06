@@ -3,12 +3,11 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 DEFINES += GTEST
-LIBS += -lgtest_main -lgtest -pthread
+LIBS += -lpcap -lgtest_main -lgtest -pthread
 DESTDIR = $${PWD}/../../bin
 
 HEADERS += \
 	../gbeaconhdr.h \
-	../gbeaconhdrinfo.h \
 	../gcommon.h \
 	../gdot11hdr.h \
 	../gmac.h \
@@ -19,7 +18,6 @@ HEADERS += \
 
 SOURCES += \
 	../gbeaconhdr.cpp \
-	../gbeaconhdrinfo.cpp \
 	../gcommon.cpp \
 	../gdot11hdr.cpp \
 	../gmac.cpp \
