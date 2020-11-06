@@ -2,7 +2,7 @@
 #include "gssg.h"
 
 void usage() {
-	printf("syntax: ssg <interface> <filter>\n");
+	printf("syntax: ssg <interface> [<filter>]\n");
 	printf("sample: ssg mon0 \"ether host 00:00:00:11:11:11\"\n");
 }
 
@@ -20,10 +20,10 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 
 	while (true) {
-		int64_t adjustOffset = 0;
+		int64_t adjustOffset = 0; // msec
 		std::cin >> adjustOffset;
 		if (adjustOffset == 0) break;
-		adjustOffset *= 1000000;
+		adjustOffset *= 1000000; // nsec
 		ssg.apMap_.mutex_.lock();
 		for (Ssg::ApMap::iterator it = ssg.apMap_.begin(); it != ssg.apMap_.end(); it++) {
 			Ssg::ApInfo& apInfo = it->second;
