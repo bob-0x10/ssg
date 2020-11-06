@@ -350,8 +350,10 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
 	int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
 	int64_t adjustInterval = (realDiff - sendDiff) * 1000 / seqDiff; // nsec
-	apInfo.adjustOffset(Diff(adjustOffset));
-	apInfo.adjustInterval(Diff(adjustInterval));
+    adjustInterval = adjustInterval * option_.changeIntervalAlpha_;
+
+    apInfo.adjustOffset(Diff(adjustOffset));
+    apInfo.adjustInterval(Diff(adjustInterval));
 	{
 		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
 		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval);
