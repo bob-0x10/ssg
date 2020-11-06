@@ -83,8 +83,8 @@ void gtrace(const char* fmt, ...) {
 	gettimeofday(&now, NULL);
 	local = localtime(&now.tv_sec);
 	res = snprintf(p, remn, "%02d%02d%02d %02d%02d%02d-%03lu ",
-	   (local->tm_year) % 100, local->tm_mon + 1, local->tm_mday,
-	   local->tm_hour, local->tm_min, local->tm_sec, now.tv_usec / 1000);
+	(local->tm_year) % 100, local->tm_mon + 1, local->tm_mday,
+	local->tm_hour, local->tm_min, local->tm_sec, now.tv_usec / 1000);
 	if (res < 0) return;
 	p += res; len += res; remn -= res;	
 

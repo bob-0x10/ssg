@@ -159,7 +159,7 @@ void Ssg::scanThread() {
 			seqInfo.rlen_ = rlen;
 			seqInfo.control_ = tim->control_;
 			seqInfo.bitmap_ = tim->bitmap_;
-            if (rlen != lc_.send_) apInfo.lastAccess_ = Timer::now();
+			if (rlen != lc_.send_) apInfo.lastAccess_ = Timer::now();
 			processAdjust(apInfo, beaconHdr->seq_, seqInfo);
 		}
 	}
@@ -351,13 +351,13 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
 	int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
 	int64_t adjustInterval = (realDiff - sendDiff) * 1000 / seqDiff; // nsec
-    adjustInterval = adjustInterval * option_.changeIntervalAlpha_;
+	adjustInterval *= option_.changeIntervalAlpha_;
 
 	apInfo.adjustOffset(Diff(adjustOffset));
 	apInfo.adjustInterval(Diff(adjustInterval));
 	{
 		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
-		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff, sendDiff, adjustOffset, adjustInterval);
+		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff / 1000, sendDiff / 1000, adjustOffset / 1000, adjustInterval / 1000);
 	}
 	seqMap.clear();
 
