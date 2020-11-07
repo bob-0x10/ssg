@@ -340,7 +340,7 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	assert(seqDiff != 0);
 	if (seqDiff < 0) { // if sequence nuber overflowed
 		GTRACE("seq overflowed first=%d last=%d\n", firstSeq, lastSeq);
-		seqDiff -= seqDiff;
+		seqDiff = -seqDiff;
 		std::swap(firstSeq, lastSeq);
 		std::swap(firstRealTv, lastRealTv);
 		std::swap(firstSendTv, lastSendTv);
