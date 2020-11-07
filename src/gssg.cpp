@@ -110,7 +110,7 @@ void Ssg::scanThread() {
 		//	GTRACE("my sending\n");
 		//}
 		// -----------------------
-		if (radiotapHdr->isShorePreamble()) continue; // if (rlen == lc_.ignore_) continue; // gilgil temp 2020.11.07
+		if (radiotapHdr->isShortPreamble()) continue; // if (rlen == lc_.ignore_) continue; // gilgil temp 2020.11.07
 		size -= radiotapHdr->len_;
 
 		Dot11Hdr* dot11Hdr = Dot11Hdr::check(radiotapHdr, size);
