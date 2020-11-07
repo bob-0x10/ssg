@@ -74,7 +74,7 @@ bool RadiotapHdr::LenghChecker::check(std::string interface) {
 		if (diff >= Diff(std::chrono::seconds(1))) {
 			int res = pcap_sendpacket(handle, (const u_char*)&packet, sizeof(Packet));
 			if (res != 0) {
-				GTRACE("pacp_sendpacket return %d - %s handle=%p\n", res, pcap_geterr(handle), handle);
+				GTRACE("pcap_sendpacket return %d - %s handle=%p\n", res, pcap_geterr(handle), handle);
 				return false;
 			}
 			lastSent = now;

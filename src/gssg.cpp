@@ -17,7 +17,7 @@ bool Ssg::BeaconFrame::init(BeaconHdr* beaconHdr, uint32_t size) {
 void Ssg::BeaconFrame::send(pcap_t* handle) {
 	int res = pcap_sendpacket(handle, (const u_char*)&radiotapHdr_, size_);
 	if (res != 0) {
-		GTRACE("pacp_sendpacket return %d - %s handle=%p size_=%u\n", res, pcap_geterr(handle), handle, size_);
+		GTRACE("pcap_sendpacket return %d - %s handle=%p size_=%u\n", res, pcap_geterr(handle), handle, size_);
 	}
 }
 
