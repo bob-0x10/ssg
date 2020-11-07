@@ -32,5 +32,7 @@ int main(int argc, char* argv[]) {
 		ssg.apMap_.mutex_.unlock();
 	}
 
+	GTRACE("bef closing ssg\n");
 	ssg.close();
+	GTRACE("aft closing ssg\n");
 }
