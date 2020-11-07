@@ -32,7 +32,7 @@ void Ssg::ApInfo::adjustInterval(Diff adjustInterval) {
 bool Ssg::open() {
 	if (active_) return false;
 
-	if (!lc_.check(interface_)) return false;
+	// if (!lc_.check(interface_)) return false; // gilgil temp 2020.11.07
 
 	scanThread_ = new std::thread(_scanThread, this);
 	sendThread_ = new std::thread(_sendThread, this);
@@ -110,7 +110,7 @@ void Ssg::scanThread() {
 		//	GTRACE("my sending\n");
 		//}
 		// -----------------------
-		if (rlen == lc_.ignore_) continue;
+		if (radiotapHdr->isShorePreamble()) continue; // if (rlen == lc_.ignore_) continue; // gilgil temp 2020.11.07
 		size -= radiotapHdr->len_;
 
 		Dot11Hdr* dot11Hdr = Dot11Hdr::check(radiotapHdr, size);
@@ -144,7 +144,7 @@ void Ssg::scanThread() {
 				tim->control_ = option_.tim_.control_;
 				tim->bitmap_ = option_.tim_.bitmap_;
 				ApInfo apInfo;
-				if (!apInfo.beaconFrame_.init(beaconHdr, lc_.send_ + size)) continue;
+				if (!apInfo.beaconFrame_.init(beaconHdr, sizeof(RadiotapHdr) + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
 				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
 				apMap_.insert({bssid, apInfo});
@@ -159,7 +159,7 @@ void Ssg::scanThread() {
 			seqInfo.rlen_ = rlen;
 			seqInfo.control_ = tim->control_;
 			seqInfo.bitmap_ = tim->bitmap_;
-			if (rlen != lc_.send_) apInfo.lastAccess_ = Timer::now();
+			if (rlen != sizeof(RadiotapHdr)) apInfo.lastAccess_ = Timer::now();
 			processAdjust(apInfo, beaconHdr->seq_, seqInfo);
 		}
 	}
@@ -192,7 +192,7 @@ void Ssg::sendThread() {
 			if (apInfo.adjustInterval_ != Diff(0)) {
 				apInfo.sendInterval_ += apInfo.adjustInterval_;
 				std::string bssid = std::string(it->first);
-				printf("%s sendInterval=%ld\n", bssid.c_str(), apInfo.sendInterval_.count());
+				printf("%s sendInterval=%f\n", bssid.c_str(), double(apInfo.sendInterval_.count()) / 1000000);
 				apInfo.adjustInterval_ = Diff(0);
 			}
 			if (now >= apInfo.nextFrameSent_) {
@@ -246,7 +246,7 @@ void Ssg::deleteThread() {
 			if (it == apMap_.end()) break;
 			ApInfo& apInfo = it->second;
 			Diff diff = now - apInfo.lastAccess_;
-			// std::string bssid = std::string(it->first); GTRACE("%s diff=%ld\n", bssid.c_str(), diff.count()); // gilgil temp
+			// std::string bssid = std::string(it->first); GTRACE("%s diff=%f\n", bssid.c_str(), double(diff.count()) / 100000); // gilgil temp
 			if (diff > Diff(option_.deleteOldApTimeout_)) {
 				std::string bssid = std::string(it->first);
 				it = apMap_.erase(it);
@@ -290,12 +290,12 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	if (seqInfoPair.isOk()) {
 		int64_t diffTime = getDiffTime(seqInfoPair.realInfo_.tv_, seqInfoPair.sendInfo_.tv_);
 		if (diffTime > option_.tooOldSeqCompareInterval_) { // send is too old
-			GTRACE("send is too old %ld\n", diffTime);
+			GTRACE("send is too old(%f)\n", double(diffTime) / 1000000);
 			seqInfoPair.sendInfo_.clear();
 			return;
 		}
 		if (diffTime < -option_.tooOldSeqCompareInterval_) { // real is too old
-			GTRACE("real is too old %ld\n", diffTime);
+			GTRACE("real is too old(%f)\n", double(diffTime) / 100000);
 			seqInfoPair.realInfo_.clear();
 			return;
 		}
@@ -357,7 +357,11 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	apInfo.adjustInterval(Diff(adjustInterval));
 	{
 		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
-		printf("%s realDiff=%ld sendDiff=%ld adjustOffset=%ld adjustInterval=%ld\n", bssid.c_str(), realDiff / 1000, sendDiff / 1000, adjustOffset / 1000, adjustInterval / 1000);
+		printf("%s realDiff=%f sendDiff=%f adjustOffset=%f adjustInterval=%f\n", bssid.c_str(),
+			double(realDiff) / 1000000,
+			double(sendDiff) / 1000000,
+			double(adjustOffset) / 1000000,
+			double(adjustInterval) / 1000000);
 	}
 	seqMap.clear();
 

@@ -17,6 +17,8 @@ RadiotapHdr* RadiotapHdr::check(char* p, uint32_t size) {
 	return radiotapHdr;
 }
 
+// ----- gilgil temp 2020.11.07 -----
+/*
 #include <pcap.h>
 #include "gqosnullhdr.h"
 bool RadiotapHdr::LenghChecker::check(std::string interface) {
@@ -119,3 +121,5 @@ bool RadiotapHdr::LenghChecker::check(std::string interface) {
 	pcap_close(handle);
 	return true;
 }
+*/
+// -----------------------------------

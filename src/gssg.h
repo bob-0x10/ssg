@@ -93,7 +93,7 @@ struct Ssg { // Station Signal Generator
 		filter_ = filter;
 	}
 
-	RadiotapHdr::LenghChecker lc_;
+	// RadiotapHdr::LenghChecker lc_; // gilgil temp 2020.11.07
 	bool active_{false};
 	bool open();
 	bool close();
