@@ -348,23 +348,25 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 
 	int64_t adjustOffset = getDiffTime(lastRealTv, lastSendTv) * 1000; // nsec
 
-	int64_t realDiff = getDiffTime(lastRealTv, firstRealTv);
-	int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv);
-	int64_t adjustInterval = (realDiff - sendDiff) * 1000 / seqDiff; // nsec
+	int64_t realDiff = getDiffTime(lastRealTv, firstRealTv) * 1000; // nsec
+	int64_t sendDiff = getDiffTime(lastSendTv, firstSendTv) * 1000; // nsec
+	int64_t adjustInterval = (realDiff - sendDiff) / seqDiff; // nsec
+	{
+		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
+		printf("%s realDiff=%f(s) sendDiff=%f(s) seqDiff=%d adjustOffset=%f(ms) adjustInterval=%f(ms)\n",
+			bssid.c_str(),
+			double(realDiff) / 1000000000,
+			double(sendDiff) / 1000000000,
+			seqDiff,
+			double(adjustOffset) / 1000000,
+			double(adjustInterval) / 1000000);
+	}
 	adjustInterval *= option_.changeIntervalAlpha_;
 
 	apInfo.adjustOffset(Diff(adjustOffset));
 	apInfo.adjustInterval(Diff(adjustInterval));
-	{
-		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
-		printf("%s realDiff=%f sendDiff=%f adjustOffset=%f adjustInterval=%f\n", bssid.c_str(),
-			double(realDiff) / 1000000,
-			double(sendDiff) / 1000000,
-			double(adjustOffset) / 1000000,
-			double(adjustInterval) / 1000000);
-	}
-	seqMap.clear();
 
+	seqMap.clear();
 }
 
 int64_t Ssg::getDiffTime(timeval tv1, timeval tv2) {

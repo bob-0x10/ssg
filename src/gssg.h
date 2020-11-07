@@ -20,7 +20,8 @@ struct Ssg { // Station Signal Generator
 		int64_t tooOldSeqCompareInterval_{10000000000}; // nsec (10 sec)
 		int64_t sendPollingTime_{1000000}; // nsec (1 msec)
 		int64_t deleteOldApTimeout_{1500000000}; // nsec (15 sec)
-		double changeIntervalAlpha_{0.1};
+		double changeIntervalAlpha_{0}; // {0.1}; // gilgil temp 2020.11.07
+
 	} option_;
 
 	#pragma pack(push, 1)
