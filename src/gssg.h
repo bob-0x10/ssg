@@ -89,12 +89,6 @@ struct Ssg { // Station Signal Generator
 
 	std::string interface_;
 	std::string filter_;
-	Ssg(std::string interface, std::string filter) {
-		interface_ = interface;
-		filter_ = filter;
-	}
-
-	// RadiotapHdr::LenghChecker lc_; // gilgil temp 2020.11.07
 	bool active_{false};
 	bool open();
 	bool close();
