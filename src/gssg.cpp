@@ -121,9 +121,10 @@ void Ssg::scanThread() {
 		//
 		le8_t typeSubtype = dot11Hdr->typeSubtype();
 		if (typeSubtype == Dot11Hdr::QosNull) {
+			if (!option_.debugQosNull_) continue;
 			QosNullHdr* qosNullHdr = QosNullHdr::check(dot11Hdr, size);
 			if (qosNullHdr == nullptr) continue;
-			// processQosNull(qosNullHdr); // gilgil temp
+				processQosNull(qosNullHdr);
 			continue;
 		}
 
@@ -213,7 +214,7 @@ void Ssg::sendThread() {
 		}
 
 		now = Timer::now();
-		Diff minWaitTime = Diff(option_.sendPollingTime_ * 2);
+		Diff minWaitTime = option_.sendPollingTime_ * 2;
 		for (ApMap::iterator it = apMap_.begin(); it != apMap_.end(); it++) {
 			ApInfo& apInfo = it->second;
 			Diff diff = apInfo.nextFrameSent_ - now;
@@ -223,7 +224,7 @@ void Ssg::sendThread() {
 		apMap_.mutex_.unlock();
 
 		minWaitTime /= 2;
-		minWaitTime -= Diff(option_.sendPollingTime_);
+		minWaitTime -= option_.sendPollingTime_;
 		if (minWaitTime > Diff(0))
 			std::this_thread::sleep_for(minWaitTime);
 	}
@@ -247,9 +248,9 @@ void Ssg::deleteThread() {
 			ApInfo& apInfo = it->second;
 			Diff diff = now - apInfo.lastAccess_;
 			// std::string bssid = std::string(it->first); GTRACE("%s diff=%f\n", bssid.c_str(), double(diff.count()) / 100000); // gilgil temp
-			if (diff > Diff(option_.deleteOldApTimeout_)) {
-				std::string bssid = std::string(it->first);
+			if (diff > option_.tooOldApDiff_) {
 				it = apMap_.erase(it);
+				std::string bssid = std::string(it->first);
 				GTRACE("%s Delete old AP\n", bssid.c_str());
 			} else
 				it++;
@@ -289,12 +290,12 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 
 	if (seqInfoPair.isOk()) {
 		int64_t diffTime = getDiffTime(seqInfoPair.realInfo_.tv_, seqInfoPair.sendInfo_.tv_);
-		if (diffTime > option_.tooOldSeqCompareInterval_) { // send is too old
+		if (diffTime > option_.tooOldSeqDiff_) { // send is too old
 			GTRACE("send is too old(%f)\n", double(diffTime) / 1000000);
 			seqInfoPair.sendInfo_.clear();
 			return;
 		}
-		if (diffTime < -option_.tooOldSeqCompareInterval_) { // real is too old
+		if (diffTime < -option_.tooOldSeqDiff_) { // real is too old
 			GTRACE("real is too old(%f)\n", double(diffTime) / 100000);
 			seqInfoPair.realInfo_.clear();
 			return;
@@ -313,7 +314,7 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	bool adjust = false;
 	if (first.isOk() && last.isOk()) {
 		int64_t diff = getDiffTime(last.sendInfo_.tv_, first.sendInfo_.tv_);
-		if (diff > option_.seqAdjustInterval_)
+		if (diff > option_.adjustInterval_)
 			adjust = true;
 	}
 	if (!adjust) return;

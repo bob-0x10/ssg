@@ -16,11 +16,12 @@ struct Ssg { // Station Signal Generator
 			le8_t control_{1};
 			le8_t bitmap_{0xFF};
 		} tim_;
-		int64_t seqAdjustInterval_{10000000}; // usec (10 sec)
-		int64_t tooOldSeqCompareInterval_{10000000000}; // nsec (10 sec)
-		int64_t sendPollingTime_{1000000}; // nsec (1 msec)
-		int64_t deleteOldApTimeout_{1500000000}; // nsec (15 sec)
-		double changeIntervalAlpha_{0}; // {0.1}; // gilgil temp 2020.11.07
+		int64_t adjustInterval_{10000000}; // usec (10 sec)
+		int64_t tooOldSeqDiff_{10000000}; // usec (10 sec)
+		Diff sendPollingTime_{Diff(1000000)}; // nsec (1000 usec)
+		Diff tooOldApDiff_{Diff(15000000000)}; // nsec (15 sec)
+		double changeIntervalAlpha_{0}; // {0.1};
+		bool debugQosNull_{false};
 
 	} option_;
 
