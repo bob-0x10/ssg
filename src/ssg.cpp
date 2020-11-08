@@ -1,5 +1,5 @@
+#include <csignal>
 #include <iostream>
-#include <signal.h>
 #include "gssg.h"
 
 void usage() {
@@ -45,21 +45,21 @@ int main(int argc, char* argv[]) {
 	ssg.interface_ = interface;
 	ssg.filter_ = filter;
 
-	signal(SIGINT, signalHandler);
-	signal(SIGINT, signalHandler);
-	signal(SIGILL, signalHandler);
-	signal(SIGABRT, signalHandler);
-	signal(SIGFPE, signalHandler);
-	signal(SIGSEGV, signalHandler);
-	signal(SIGTERM, signalHandler);
-	signal(SIGHUP, signalHandler);
-	signal(SIGQUIT, signalHandler);
-	signal(SIGTRAP, signalHandler);
-	signal(SIGKILL, signalHandler);
-	signal(SIGBUS, signalHandler);
-	signal(SIGSYS, signalHandler);
-	signal(SIGPIPE, signalHandler);
-	signal(SIGALRM, signalHandler);
+	std::signal(SIGINT, signalHandler);
+	std::signal(SIGINT, signalHandler);
+	std::signal(SIGILL, signalHandler);
+	std::signal(SIGABRT, signalHandler);
+	std::signal(SIGFPE, signalHandler);
+	std::signal(SIGSEGV, signalHandler);
+	std::signal(SIGTERM, signalHandler);
+	std::signal(SIGHUP, signalHandler);
+	std::signal(SIGQUIT, signalHandler);
+	std::signal(SIGTRAP, signalHandler);
+	std::signal(SIGKILL, signalHandler);
+	std::signal(SIGBUS, signalHandler);
+	std::signal(SIGSYS, signalHandler);
+	std::signal(SIGPIPE, signalHandler);
+	std::signal(SIGALRM, signalHandler);
 
 	if (!ssg.open())
 		exit(-1);
