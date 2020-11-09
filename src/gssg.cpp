@@ -305,21 +305,22 @@ void Ssg::processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	SeqInfoPair& seqInfoPair = it->second;
 
 	bool sendPacket = seqInfo.control_ == option_.tim_.control_ && seqInfo.bitmap_ == option_.tim_.bitmap_;
-	if (sendPacket)
+	if (sendPacket) {
+		seqInfo.tv_ = getAddTime(seqInfo.tv_, option_.sendMeasureOffset_);
 		seqInfoPair.sendInfo_ = seqInfo;
-	else
+	} else
 		seqInfoPair.realInfo_ = seqInfo;
 
 	if (!seqInfoPair.isOk()) return;
 
 	int64_t diffTime = getDiffTime(seqInfoPair.realInfo_.tv_, seqInfoPair.sendInfo_.tv_);
 	if (diffTime > option_.tooOldSeqDiff_) { // send is too old
-		GTRACE("send is too old(%f)\n", double(diffTime) / 1000000);
+		GTRACE("send is too old(%f us)\n", double(diffTime) / 1000000);
 		seqInfoPair.sendInfo_.clear();
 		return;
 	}
 	if (diffTime < -option_.tooOldSeqDiff_) { // real is too old
-		GTRACE("real is too old(%f)\n", double(diffTime) / 100000);
+		GTRACE("real is too old(%f us)\n", double(diffTime) / 100000);
 		seqInfoPair.realInfo_.clear();
 		return;
 	}
@@ -335,7 +336,7 @@ void Ssg::processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		int64_t diff = getDiffTime(realTv, sendTv);
 		le8_t control = seqInfoPair.sendInfo_.control_;
 		le8_t bitmap = seqInfoPair.sendInfo_.bitmap_;
-		printf("%s seq=%4d diff=%f(us) ctl=%02X bitmap=%02X\n", bssid.c_str(), seq, double(diff) / 1000, control, bitmap);
+		printf("%s seq=%4d diff=%f(us) ctl=%02X bitmap=%02X\n", bssid.c_str(), seq, double(diff), control, bitmap);
 		seqMap.erase(it);
 		return;
 	}
@@ -410,3 +411,15 @@ int64_t Ssg::getDiffTime(timeval tv1, timeval tv2) {
 	return res;
 }
 
+timeval Ssg::getAddTime(timeval tv, int64_t added) {
+	timeval add;
+	add.tv_sec = added / 1000000;
+	add.tv_usec = added % 1000000;
+	tv.tv_sec += add.tv_sec;
+	tv.tv_usec += add.tv_usec;
+	if (tv.tv_usec > 1000000) {
+		tv.tv_usec--;
+		tv.tv_sec++;
+	}
+	return tv;
+}
