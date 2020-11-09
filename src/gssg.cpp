@@ -17,11 +17,14 @@ bool Ssg::BeaconFrame::init(BeaconHdr* beaconHdr, uint32_t size) {
 }
 
 void Ssg::BeaconFrame::send(pcap_t* handle) {
+	debug = 20000; // gilgil temp 2020.11.09
 	int res = pcap_sendpacket(handle, (const u_char*)&radiotapHdr_, size_);
-	GTRACE("pcap_sendpacket return %d\n", res); // gilgil temp 2020.11.09
+	debug = 21000; // gilgil temp 2020.11.09
+	GTRACE("pcap_sendpacket %u return %d\n", size_, res); // gilgil temp 2020.11.09
 	if (res != 0) {
 		GTRACE("pcap_sendpacket return %d - %s handle=%p size_=%u\n", res, pcap_geterr(handle), handle, size_);
 	}
+	debug = 22000; // gilgil temp 2020.11.09
 }
 
 void Ssg::ApInfo::adjustOffset(Diff adjustOffset) {
@@ -75,7 +78,7 @@ void Ssg::_scanThread(Ssg* ssg) {
 void Ssg::scanThread() {
 	GTRACE("scanThread beg %s %s\n", __DATE__, __TIME__);
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(interface_.c_str(), BUFSIZ, 1, 1, errbuf);
+	pcap_t* handle = pcap_open_live(interface_.c_str(), 11000, 1, 1, errbuf);
 	if (handle == nullptr) {
 		GTRACE("pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
 		return;
@@ -182,33 +185,39 @@ void Ssg::_sendThread(Ssg* ssg) {
 void Ssg::sendThread() {
 	GTRACE("sendThread beg\n");
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(interface_.c_str(), 0, 0, 0, errbuf);
+	pcap_t* handle = pcap_open_live(interface_.c_str(), 11000, 0, 0, errbuf);
 	if (handle == nullptr) {
 		GTRACE("pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
 		return;
 	}
 
 	while (active_) {
+		debug = 10000; // gilgil temp 2020.11.09
 		Clock now = Timer::now();
+		debug = 11000; // gilgil temp 2020.11.09
 		apMap_.mutex_.lock();
+		debug = 12000; // gilgil temp 2020.11.09
 		for (ApMap::iterator it = apMap_.begin(); it != apMap_.end(); it++) {
 			ApInfo& apInfo = it->second;
 			if (apInfo.adjustOffset_ != Diff(0)) {
 				apInfo.nextFrameSent_+= apInfo.adjustOffset_;
 				apInfo.adjustOffset_ = Diff(0);
 			}
+			debug = 12100; // gilgil temp 2020.11.09
 			if (apInfo.adjustInterval_ != Diff(0)) {
 				apInfo.sendInterval_ += apInfo.adjustInterval_;
 				std::string bssid = std::string(it->first);
 				printf("%s sendInterval=%f\n", bssid.c_str(), double(apInfo.sendInterval_.count()) / 1000000);
 				apInfo.adjustInterval_ = Diff(0);
 			}
+			debug = 12200; // gilgil temp 2020.11.09
 			if (now >= apInfo.nextFrameSent_) {
 				le16_t seq = apInfo.beaconFrame_.beaconHdr_.seq_;
 				seq++;
 				apInfo.beaconFrame_.beaconHdr_.seq_ = seq++;
-
+				debug = 12300; // gilgil temp 2020.11.09
 				apInfo.beaconFrame_.send(handle);
+				debug = 12400; // gilgil temp 2020.11.09
 				// ----- gilgil temp -----
 				//{
 				//	std::string bssid = std::string(it->first);
@@ -217,8 +226,10 @@ void Ssg::sendThread() {
 				//}
 				// -----------------------
 				apInfo.nextFrameSent_ += apInfo.sendInterval_;
+				debug = 12500; // gilgil temp 2020.11.09
 			}
 		}
+		debug = 13000; // gilgil temp 2020.11.09
 
 		now = Timer::now();
 		Diff minWaitTime = option_.sendPollingTime_ * 2;
@@ -228,12 +239,15 @@ void Ssg::sendThread() {
 			if (minWaitTime < diff)
 				minWaitTime = diff;
 		}
+		debug = 14000; // gilgil temp 2020.11.09
 		apMap_.mutex_.unlock();
+		debug = 15000; // gilgil temp 2020.11.09
 
 		minWaitTime /= 2;
 		minWaitTime -= option_.sendPollingTime_;
 		if (minWaitTime > Diff(0))
 			std::this_thread::sleep_for(minWaitTime);
+		debug = 16000; // gilgil temp 2020.11.09
 	}
 	pcap_close(handle);
 	GTRACE("sendThread end\n");

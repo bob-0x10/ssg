@@ -2,7 +2,6 @@
 
 #include "gcommon.h"
 
-#pragma pack(push, 1)
 struct RadiotapHdr {
 	le8_t ver_;
 	le8_t pad_;
@@ -22,6 +21,5 @@ struct RadiotapHdr {
 		bool check(std::string interface);
 	};	*/
 	// -----------------------------------
-};
+} __attribute__((packed));
 typedef RadiotapHdr *PRadiotapHdr;
-#pragma pack(pop)

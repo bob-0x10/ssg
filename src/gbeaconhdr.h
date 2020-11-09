@@ -2,7 +2,6 @@
 
 #include "gdot11hdr.h"
 
-#pragma pack(push, 1)
 struct BeaconHdr : Dot11Hdr {
 	Mac addr1_;
 	Mac addr2_;
@@ -55,6 +54,6 @@ struct BeaconHdr : Dot11Hdr {
 
 	static BeaconHdr* check(Dot11Hdr* dot11Hdr, uint32_t size);
 	TrafficIndicationMap* getTim(uint32_t size);
-};
+} __attribute__((packed));
 typedef BeaconHdr *PBeaconHdr;
-#pragma pack(pop)
+

@@ -25,7 +25,6 @@ struct Ssg { // Station Signal Generator
 		bool checkOnly_{false};
 	} option_;
 
-	#pragma pack(push, 1)
 	struct BeaconFrame {
 		static const int DummySize = 8192;
 		RadiotapHdr radiotapHdr_;
@@ -35,8 +34,7 @@ struct Ssg { // Station Signal Generator
 
 		bool init(BeaconHdr* beaconHdr, uint32_t size);
 		void send(pcap_t* handle);
-	};
-	#pragma pack(pop)
+	} __attribute__((packed));
 
 	struct SeqInfo {
 		le16_t seq_;

@@ -63,7 +63,7 @@ public:
 	static Mac randomMac();
 	static Mac& nullMac();
 	static Mac& broadcastMac();
-};
+} __attribute__((packed));
 
 namespace std {
 	template<>

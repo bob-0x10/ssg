@@ -2,7 +2,6 @@
 
 #include "gdot11hdr.h"
 
-#pragma pack(push, 1)
 struct QosNullHdr : Dot11Hdr {
 	Mac addr1_;
 	Mac addr2_;
@@ -19,6 +18,5 @@ struct QosNullHdr : Dot11Hdr {
 	Mac sta() { return addr2_; }
 
 	static QosNullHdr* check(Dot11Hdr* dot11Hdr, uint32_t size);
-};
+} __attribute__((packed));
 typedef QosNullHdr *PQosNullHdr;
-#pragma pack(pop)
