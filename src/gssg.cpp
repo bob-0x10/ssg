@@ -20,7 +20,8 @@ void Ssg::BeaconFrame::send(pcap_t* handle) {
 	debug = 20000; // gilgil temp 2020.11.09
 	int res = pcap_sendpacket(handle, (const u_char*)&radiotapHdr_, size_);
 	debug = 21000; // gilgil temp 2020.11.09
-	GTRACE("pcap_sendpacket %u return %d\n", size_, res); // gilgil temp 2020.11.09
+	static int count = 0;
+	if (count++ % 100 == 0) GTRACE("pcap_sendpacket %u return %d\n", size_, res); // gilgil temp 2020.11.09
 	if (res != 0) {
 		GTRACE("pcap_sendpacket return %d - %s handle=%p size_=%u\n", res, pcap_geterr(handle), handle, size_);
 	}
@@ -185,7 +186,7 @@ void Ssg::_sendThread(Ssg* ssg) {
 void Ssg::sendThread() {
 	GTRACE("sendThread beg\n");
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = pcap_open_live(interface_.c_str(), 11000, 0, 0, errbuf);
+	pcap_t* handle = pcap_open_live(interface_.c_str(), 11000, 1, 1, errbuf);
 	if (handle == nullptr) {
 		GTRACE("pcap_open_live(%s) return null - %s\n", interface_.c_str(), errbuf);
 		return;
@@ -214,7 +215,7 @@ void Ssg::sendThread() {
 			if (now >= apInfo.nextFrameSent_) {
 				le16_t seq = apInfo.beaconFrame_.beaconHdr_.seq_;
 				seq++;
-				apInfo.beaconFrame_.beaconHdr_.seq_ = seq++;
+				apInfo.beaconFrame_.beaconHdr_.seq_ = seq;
 				debug = 12300; // gilgil temp 2020.11.09
 				apInfo.beaconFrame_.send(handle);
 				debug = 12400; // gilgil temp 2020.11.09
