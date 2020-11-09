@@ -12,14 +12,16 @@ struct BeaconHdr : Dot11Hdr {
 	Mac ra() { return addr1_;}
 	Mac da() { return addr1_; }
 	Mac ta() { return addr2_; }
-	Mac ss() { return addr2_; }
+	Mac sa() { return addr2_; }
 	Mac bssid() { return addr3_; }
 
-	struct Fix {
+	//#pragma pack(push, 1)
+	struct __attribute__((packed)) Fix {
 		le64_t timestamp_; // microsecond
 		le16_t beaconInterval_; // millisecond
 		le16_t capabilities_;
 	} fix_;
+	//#pragma pack(pop)
 
 	struct Tag {
 		le8_t num_;
