@@ -22,7 +22,7 @@ struct Ssg { // Station Signal Generator
 		Diff tooOldApDiff_{Diff(15000000000)}; // nsec (15 sec)
 		double changeIntervalAlpha_{0}; // {0.1};
 		bool debugQosNull_{false};
-
+		bool checkOnly_{false};
 	} option_;
 
 	#pragma pack(push, 1)
@@ -108,6 +108,6 @@ struct Ssg { // Station Signal Generator
 
 protected:
 	void processQosNull(QosNullHdr* qosNullHdr);
-	void processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo);
+	void processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo);
 	static int64_t getDiffTime(timeval tv1, timeval tv2);
 };

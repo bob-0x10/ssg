@@ -12,6 +12,8 @@ struct Param {
 			return false;
 		}
 		ssg.interface_ = argv[1];
+		if (argc < 3)
+			return true;
 		int i = 2;
 		std::string filter = argv[2];
 		if (filter.at(0) != '-') {
@@ -30,7 +32,7 @@ struct Param {
 				printf("ssg.option_.tim_.control=%d\n", ssg.option_.tim_.control_);
 			} else if (option == "-tb") {
 				ssg.option_.tim_.bitmap_ = std::stoi(value);
-				printf("ssg.option_.tim_.bitmap_ =%d\n", ssg.option_.tim_.bitmap_);
+				printf("ssg.option_.tim_.bitmap_=%d\n", ssg.option_.tim_.bitmap_);
 			} else if (option == "-ai") {
 				ssg.option_.adjustInterval_ = std::stoll(value) * 1000000; // sec to usec
 				printf("ssg.option_.adjustInterval_=%f\n", double(ssg.option_.adjustInterval_ / 1000000));
@@ -49,6 +51,9 @@ struct Param {
 			} else if (option == "-dpn") {
 				ssg.option_.debugQosNull_ = (value == "1" || value == "true");
 				printf("ssg.option_.debugQosNull_=%s\n", ssg.option_.debugQosNull_ ? "true" : "false");
+			} else if (option == "-co") {
+				ssg.option_.checkOnly_ = (value == "1" || value == "true");
+				printf("ssg.option_.checkOnly_=%s\n", ssg.option_.checkOnly_ ? "true" : "false");
 			}
 		}
 		return true;
@@ -67,6 +72,7 @@ struct Param {
 		printf("  -toad <too old ap diff>       (15 sec)\n");
 		printf("  -cia  <change interval alpha> (0.0)\n");
 		printf("  -dqn  <debug qos null>        (0)\n");
+		printf("  -co   <check only>            (0)\n");
 		printf("\n");
 	}
 };
@@ -122,8 +128,8 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 
 	while (true) {
-		int64_t adjustOffset = 0; // msec
-		std::cin >> adjustOffset;
+		int64_t adjustOffset = 0;
+		std::cin >> adjustOffset; // msec
 		if (adjustOffset == 0) break;
 		adjustOffset *= 1000000; // nsec
 		ssg.apMap_.mutex_.lock();

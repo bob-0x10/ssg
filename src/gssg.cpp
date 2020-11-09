@@ -32,10 +32,9 @@ void Ssg::ApInfo::adjustInterval(Diff adjustInterval) {
 bool Ssg::open() {
 	if (active_) return false;
 
-	// if (!lc_.check(interface_)) return false; // gilgil temp 2020.11.07
-
 	scanThread_ = new std::thread(_scanThread, this);
-	sendThread_ = new std::thread(_sendThread, this);
+	if (!option_.checkOnly_)
+		sendThread_ = new std::thread(_sendThread, this);
 	deleteThread_ = new std::thread(_deleteThread, this);
 
 	active_ = true;
@@ -46,14 +45,19 @@ bool Ssg::close() {
 	if (!active_) return false;
 	active_ = false;
 
+	assert(scanThread_ != nullptr);
 	scanThread_->join();
 	delete scanThread_;
 	scanThread_ = nullptr;
 
-	sendThread_->join();
-	delete sendThread_;
-	sendThread_ = nullptr;
+	if (!option_.checkOnly_) {
+		assert(sendThread_ != nullptr);
+		sendThread_->join();
+		delete sendThread_;
+		sendThread_ = nullptr;
+	}
 
+	assert(deleteThread_ != nullptr);
 	deleteThread_->join();
 	delete deleteThread_;
 	deleteThread_ = nullptr;
@@ -161,7 +165,7 @@ void Ssg::scanThread() {
 			seqInfo.control_ = tim->control_;
 			seqInfo.bitmap_ = tim->bitmap_;
 			if (rlen != sizeof(RadiotapHdr)) apInfo.lastAccess_ = Timer::now();
-			processAdjust(apInfo, beaconHdr->seq_, seqInfo);
+			processAp(apInfo, beaconHdr->seq_, seqInfo);
 		}
 	}
 	pcap_close(handle);
@@ -271,7 +275,7 @@ void Ssg::processQosNull(QosNullHdr* qosNullHdr) {
 	apMap_.mutex_.unlock();
 }
 
-void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
+void Ssg::processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	SeqMap& seqMap = apInfo.seqMap_;
 	SeqMap::iterator it = seqMap.find(seq);
 	if (it == seqMap.end()) {
@@ -288,22 +292,32 @@ void Ssg::processAdjust(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 	else
 		seqInfoPair.realInfo_ = seqInfo;
 
-	if (seqInfoPair.isOk()) {
-		int64_t diffTime = getDiffTime(seqInfoPair.realInfo_.tv_, seqInfoPair.sendInfo_.tv_);
-		if (diffTime > option_.tooOldSeqDiff_) { // send is too old
-			GTRACE("send is too old(%f)\n", double(diffTime) / 1000000);
-			seqInfoPair.sendInfo_.clear();
-			return;
-		}
-		if (diffTime < -option_.tooOldSeqDiff_) { // real is too old
-			GTRACE("real is too old(%f)\n", double(diffTime) / 100000);
-			seqInfoPair.realInfo_.clear();
-			return;
-		}
-		if (!seqMap.firstOk_) {
-			seqMap.firstOk_ = true;
-			seqMap.firstIterator_ = it;
-		}
+	if (!seqInfoPair.isOk()) return;
+
+	int64_t diffTime = getDiffTime(seqInfoPair.realInfo_.tv_, seqInfoPair.sendInfo_.tv_);
+	if (diffTime > option_.tooOldSeqDiff_) { // send is too old
+		GTRACE("send is too old(%f)\n", double(diffTime) / 1000000);
+		seqInfoPair.sendInfo_.clear();
+		return;
+	}
+	if (diffTime < -option_.tooOldSeqDiff_) { // real is too old
+		GTRACE("real is too old(%f)\n", double(diffTime) / 100000);
+		seqInfoPair.realInfo_.clear();
+		return;
+	}
+	if (!seqMap.firstOk_) {
+		seqMap.firstOk_ = true;
+		seqMap.firstIterator_ = it;
+	}
+
+	if (option_.checkOnly_) {
+		std::string bssid = std::string(apInfo.beaconFrame_.beaconHdr_.bssid());
+		timeval realTv = seqInfoPair.realInfo_.tv_;
+		timeval sendTv = seqInfoPair.sendInfo_.tv_;
+		int64_t diff = getDiffTime(realTv, sendTv);
+		printf("%s seq=%4d diff=+%f(us)\n", bssid.c_str(), seq, double(diff) / 1000);
+		seqMap.erase(it);
+		return;
 	}
 
 	if (!seqMap.firstOk_) return;
