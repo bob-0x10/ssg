@@ -315,7 +315,9 @@ void Ssg::processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		timeval realTv = seqInfoPair.realInfo_.tv_;
 		timeval sendTv = seqInfoPair.sendInfo_.tv_;
 		int64_t diff = getDiffTime(realTv, sendTv);
-		printf("%s seq=%4d diff=+%f(us)\n", bssid.c_str(), seq, double(diff) / 1000);
+		le8_t control = seqInfoPair.sendInfo_.control_;
+		le8_t bitmap = seqInfoPair.sendInfo_.bitmap_;
+		printf("%s seq=%4d diff=%f(us) ctl=%x bitmap=%x\n", bssid.c_str(), seq, double(diff) / 1000, control, bitmap);
 		seqMap.erase(it);
 		return;
 	}
