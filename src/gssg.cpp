@@ -1,5 +1,7 @@
 #include "gssg.h"
 
+int debug = 0;
+
 bool Ssg::BeaconFrame::init(BeaconHdr* beaconHdr, uint32_t size) {
 	if (size > DummySize) {
 		GTRACE("Too big beacon frame size(%d)\n", size);
@@ -16,6 +18,7 @@ bool Ssg::BeaconFrame::init(BeaconHdr* beaconHdr, uint32_t size) {
 
 void Ssg::BeaconFrame::send(pcap_t* handle) {
 	int res = pcap_sendpacket(handle, (const u_char*)&radiotapHdr_, size_);
+	GTRACE("pcap_sendpacket return %d\n", res); // gilgil temp 2020.11.09
 	if (res != 0) {
 		GTRACE("pcap_sendpacket return %d - %s handle=%p size_=%u\n", res, pcap_geterr(handle), handle, size_);
 	}
@@ -317,7 +320,7 @@ void Ssg::processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 		int64_t diff = getDiffTime(realTv, sendTv);
 		le8_t control = seqInfoPair.sendInfo_.control_;
 		le8_t bitmap = seqInfoPair.sendInfo_.bitmap_;
-		printf("%s seq=%4d diff=%f(us) ctl=%x bitmap=%x\n", bssid.c_str(), seq, double(diff) / 1000, control, bitmap);
+		printf("%s seq=%4d diff=%f(us) ctl=%02X bitmap=%02X\n", bssid.c_str(), seq, double(diff) / 1000, control, bitmap);
 		seqMap.erase(it);
 		return;
 	}

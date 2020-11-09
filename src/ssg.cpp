@@ -103,6 +103,8 @@ void signalHandler(int signo) {
 	exit(0);
 }
 
+extern int debug;
+
 int main(int argc, char* argv[]) {
 	Param param;
 	if (!param.parse(argc, argv))
@@ -128,9 +130,13 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 
 	while (true) {
-		int64_t adjustOffset = 0;
-		std::cin >> adjustOffset; // msec
-		if (adjustOffset == 0) break;
+		std::string cmd; std::cin >> cmd;
+		if (cmd == "q") break;
+		if (cmd == "d") {
+			GTRACE("debug=%d\n", debug);
+			continue;
+		}
+		int64_t adjustOffset = std::stoi(cmd);
 		adjustOffset *= 1000000; // nsec
 		ssg.apMap_.mutex_.lock();
 		for (Ssg::ApMap::iterator it = ssg.apMap_.begin(); it != ssg.apMap_.end(); it++) {
