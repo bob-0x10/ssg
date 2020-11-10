@@ -108,7 +108,9 @@ TEST(Mac, unordered_mapTest) {
 	m.insert(std::make_pair(Mac("001122-334455"), 1));
 	m.insert(std::make_pair(Mac("001122-334456"), 2));
 	m.insert(std::make_pair(Mac("001122-334457"), 3));
-	//EXPECT_EQ(m.size(), 3);
+	EXPECT_EQ(m.size(), 3);
+	m.insert(std::make_pair(Mac("001122-334457"), 3));
+	EXPECT_EQ(m.size(), 3);
 }
 
 #endif // GTEST
