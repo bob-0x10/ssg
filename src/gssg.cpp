@@ -212,7 +212,7 @@ void Ssg::sendThread() {
 				apInfo.adjustInterval_ = Diff(0);
 			}
 			debug = 12200; // gilgil temp 2020.11.09
-			if (now >= apInfo.nextFrameSent_) {
+			if (now >= apInfo.nextFrameSent_ + option_.sendOffset_) {
 				le16_t seq = apInfo.beaconFrame_.beaconHdr_.seq_;
 				seq++;
 				apInfo.beaconFrame_.beaconHdr_.seq_ = seq;
@@ -306,7 +306,7 @@ void Ssg::processAp(ApInfo& apInfo, le16_t seq, SeqInfo seqInfo) {
 
 	bool sendPacket = seqInfo.control_ == option_.tim_.control_ && seqInfo.bitmap_ == option_.tim_.bitmap_;
 	if (sendPacket) {
-		seqInfo.tv_ = getAddTime(seqInfo.tv_, option_.sendMeasureOffset_);
+		seqInfo.tv_ = getAddTime(seqInfo.tv_, -option_.sendOffset_.count());
 		seqInfoPair.sendInfo_ = seqInfo;
 	} else
 		seqInfoPair.realInfo_ = seqInfo;
@@ -411,12 +411,13 @@ int64_t Ssg::getDiffTime(timeval tv1, timeval tv2) {
 	return res;
 }
 
-timeval Ssg::getAddTime(timeval tv, int64_t added) {
-	timeval add;
-	add.tv_sec = added / 1000000;
-	add.tv_usec = added % 1000000;
-	tv.tv_sec += add.tv_sec;
-	tv.tv_usec += add.tv_usec;
+timeval Ssg::getAddTime(timeval tv, int64_t nsec) {
+	timeval added;
+	nsec /= 1000;
+	added.tv_sec = nsec / 1000000;
+	added.tv_usec = nsec % 1000000;
+	tv.tv_sec += added.tv_sec;
+	tv.tv_usec += added.tv_usec;
 	if (tv.tv_usec > 1000000) {
 		tv.tv_usec--;
 		tv.tv_sec++;
