@@ -158,7 +158,7 @@ void Ssg::scanThread() {
 				ApInfo apInfo;
 				if (!apInfo.beaconFrame_.init(beaconHdr, sizeof(RadiotapHdr) + size)) continue;
 				apInfo.sendInterval_ = Diff(beaconHdr->fix_.beaconInterval_ * 1024000);
-				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_;
+				apInfo.nextFrameSent_ = Timer::now() + apInfo.sendInterval_ + option_.sendOffset_;
 				apMap_.insert({bssid, apInfo});
 				it = apMap_.find(bssid);
 				assert(it != apMap_.end());
@@ -271,9 +271,9 @@ void Ssg::deleteThread() {
 			Diff diff = now - apInfo.lastAccess_;
 			// std::string bssid = std::string(it->first); GTRACE("%s diff=%f\n", bssid.c_str(), double(diff.count()) / 100000); // gilgil temp
 			if (diff > option_.tooOldApDiff_) {
-				it = apMap_.erase(it);
 				std::string bssid = std::string(it->first);
 				GTRACE("%s Delete old AP\n", bssid.c_str());
+				it = apMap_.erase(it);
 			} else
 				it++;
 		}

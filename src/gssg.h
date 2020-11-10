@@ -38,8 +38,9 @@ struct Ssg { // Station Signal Generator
 	} __attribute__((packed));
 
 	struct SeqInfo {
+		SeqInfo() { clear(); }
 		le16_t seq_;
-		bool ok_{false};
+		bool ok_;
 		timeval tv_;
 		le16_t rlen_; // radiotap len;
 		le8_t control_;
