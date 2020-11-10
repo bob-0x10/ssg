@@ -51,12 +51,15 @@ struct Param {
 			} else if (option == "-cia") {
 				ssg.option_.changeIntervalAlpha_ = std::stof(value);
 				printf("ssg.option_.changeIntervalAlpha_=%f\n", ssg.option_.changeIntervalAlpha_);
-			} else if (option == "-dpn") {
+			} else if (option == "-dqn") {
 				ssg.option_.debugQosNull_ = (value == "1" || value == "true");
 				printf("ssg.option_.debugQosNull_=%s\n", ssg.option_.debugQosNull_ ? "true" : "false");
 			} else if (option == "-co") {
 				ssg.option_.checkOnly_ = (value == "1" || value == "true");
 				printf("ssg.option_.checkOnly_=%s\n", ssg.option_.checkOnly_ ? "true" : "false");
+			} else {
+				printf("invalie option %s\n", option.c_str());
+				return false;
 			}
 		}
 		return true;
