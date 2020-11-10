@@ -413,14 +413,18 @@ int64_t Ssg::getDiffTime(timeval tv1, timeval tv2) {
 
 timeval Ssg::getAddTime(timeval tv, int64_t nsec) {
 	timeval added;
-	nsec /= 1000;
-	added.tv_sec = nsec / 1000000;
-	added.tv_usec = nsec % 1000000;
+	int64_t usec = nsec / 1000;
+	added.tv_sec = usec / 1000000;
+	added.tv_usec = usec % 1000000;
 	tv.tv_sec += added.tv_sec;
 	tv.tv_usec += added.tv_usec;
 	if (tv.tv_usec > 1000000) {
-		tv.tv_usec--;
 		tv.tv_sec++;
+		tv.tv_usec -= 1000000;
+	} else if (tv.tv_sec < - 1000000) {
+		tv.tv_sec--;
+		tv.tv_usec += 1000000;
 	}
+
 	return tv;
 }
