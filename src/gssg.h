@@ -17,7 +17,7 @@ struct Ssg { // Station Signal Generator
 			le8_t bitmap_{0xFF};
 		} tim_;
 		int64_t adjustInterval_{10000000}; // usec (10 sec)
-		Diff sendOffset_{Diff(0)}; // nsec (0 usec)
+		Diff sendOffset_{Diff(0)}; // nsec (0 msec)
 		int64_t tooOldSeqDiff_{10000000}; // usec (10 sec)
 		Diff sendPollingTime_{Diff(1000000)}; // nsec (1000 usec)
 		Diff tooOldApDiff_{Diff(15000000000)}; // nsec (15 sec)

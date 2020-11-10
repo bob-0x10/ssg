@@ -37,8 +37,8 @@ struct Param {
 				ssg.option_.adjustInterval_ = std::stoll(value) * 1000000; // sec to usec
 				printf("ssg.option_.adjustInterval_=%f\n", double(ssg.option_.adjustInterval_ / 1000000));
 			} else if (option == "-so") {
-				ssg.option_.sendOffset_ = Diff(std::stoll(value) * 1000); // usec to nsec
-				printf("ssg.option_.sendOffset_=%f\n", double(ssg.option_.sendOffset_.count()) / 1000);
+				ssg.option_.sendOffset_ = Diff(std::stoll(value) * 1000000); // msec to nsec
+				printf("ssg.option_.sendOffset_=%f\n", double(ssg.option_.sendOffset_.count()) / 1000000);
 			} else if (option == "-tosd") {
 				ssg.option_.tooOldSeqDiff_ = std::stoll(value) * 100000; // sec to usec
 				printf("ssg.option_.tooOldSeqDiff_=%f\n", double(ssg.option_.tooOldSeqDiff_) / 100000);
@@ -73,7 +73,7 @@ struct Param {
 		printf("  -tc   <tim control>           (1)\n");
 		printf("  -tb   <tim bitmap>            (255)\n");
 		printf("  -ai   <adjust interval>       (10 sec)\n");
-		printf("  -so   <send offset>           (0 usec)\n");
+		printf("  -so   <send offset>           (0 msec)\n");
 		printf("  -tosd <too old seq diff>      (10 sec)\n");
 		printf("  -spt  <send polling time>     (1000 usec)\n");
 		printf("  -toad <too old ap diff>       (15 sec)\n");
