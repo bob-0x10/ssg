@@ -4,6 +4,7 @@
 #include "gssg.h"
 
 Ssg ssg;
+extern int debug;
 
 struct Param {
 	bool parse(int argc, char** argv) {
@@ -84,7 +85,6 @@ struct Param {
 	}
 };
 
-
 void signalHandler(int signo) {
 	std::string signal = "unknown";
 	switch (signo) {
@@ -110,7 +110,25 @@ void signalHandler(int signo) {
 	exit(0);
 }
 
-extern int debug;
+void consoleThead() {
+	while (true) {
+		std::string cmd; std::cin >> cmd;
+		if (cmd == "q") break;
+		if (cmd == "d") {
+			GTRACE("debug=%d\n", debug);
+			continue;
+		}
+		int64_t adjustOffset = std::stoi(cmd);
+		adjustOffset *= 1000000; // nsec
+		ssg.apMap_.mutex_.lock();
+		for (Ssg::ApMap::iterator it = ssg.apMap_.begin(); it != ssg.apMap_.end(); it++) {
+			Ssg::ApInfo& apInfo = it->second;
+			apInfo.adjustOffset(Diff(adjustOffset));
+		}
+		ssg.apMap_.mutex_.unlock();
+	}
+	ssg.active_ = false;
+}
 
 int main(int argc, char* argv[]) {
 	Param param;
@@ -136,22 +154,10 @@ int main(int argc, char* argv[]) {
 	if (!ssg.open())
 		exit(-1);
 
-	while (true) {
-		std::string cmd; std::cin >> cmd;
-		if (cmd == "q") break;
-		if (cmd == "d") {
-			GTRACE("debug=%d\n", debug);
-			continue;
-		}
-		int64_t adjustOffset = std::stoi(cmd);
-		adjustOffset *= 1000000; // nsec
-		ssg.apMap_.mutex_.lock();
-		for (Ssg::ApMap::iterator it = ssg.apMap_.begin(); it != ssg.apMap_.end(); it++) {
-			Ssg::ApInfo& apInfo = it->second;
-			apInfo.adjustOffset(Diff(adjustOffset));
-		}
-		ssg.apMap_.mutex_.unlock();
-	}
+	std::thread* _consoleThread = new std::thread(consoleThead);
+	_consoleThread->detach();
+
+	ssg.wait();
 
 	GTRACE("bef closing ssg\n");
 	ssg.close();

@@ -52,28 +52,36 @@ bool Ssg::close() {
 	if (!active_) return false;
 	active_ = false;
 
-	assert(scanThread_ != nullptr);
-	scanThread_->join();
-	delete scanThread_;
-	scanThread_ = nullptr;
+	wait();
 
-	if (!option_.checkOnly_) {
-		assert(sendThread_ != nullptr);
-		sendThread_->join();
+	if (scanThread_ != nullptr) {
+		delete scanThread_;
+		scanThread_ = nullptr;
+	}
+	if (sendThread_ != nullptr) {
 		delete sendThread_;
 		sendThread_ = nullptr;
 	}
-
-	assert(deleteThread_ != nullptr);
-	deleteThread_->join();
-	delete deleteThread_;
-	deleteThread_ = nullptr;
+	if (deleteThread_ != nullptr) {
+		delete deleteThread_;
+		deleteThread_ = nullptr;
+	}
 
 	return true;
 }
 
+void Ssg::wait() {
+	if (scanThread_ != nullptr)
+		scanThread_->join();
+	if (sendThread_ != nullptr)
+		sendThread_->join();
+	if (deleteThread_ != nullptr)
+		deleteThread_->join();
+}
+
 void Ssg::_scanThread(Ssg* ssg) {
 	ssg->scanThread();
+	ssg->active_ = false;
 }
 
 void Ssg::scanThread() {
@@ -181,6 +189,7 @@ void Ssg::scanThread() {
 
 void Ssg::_sendThread(Ssg* ssg) {
 	ssg->sendThread();
+	ssg->active_ = false;
 }
 
 void Ssg::sendThread() {
@@ -256,6 +265,7 @@ void Ssg::sendThread() {
 
 void Ssg::_deleteThread(Ssg* ssg) {
 	ssg->deleteThread();
+	ssg->active_ = false;
 }
 
 void Ssg::deleteThread() {

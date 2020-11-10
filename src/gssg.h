@@ -93,6 +93,7 @@ struct Ssg { // Station Signal Generator
 	bool active_{false};
 	bool open();
 	bool close();
+	void wait();
 
 	std::thread* scanThread_{nullptr};
 	static void _scanThread(Ssg* ssg);
