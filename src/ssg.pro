@@ -7,6 +7,9 @@ INCLUDEPATH+=$${PWD}/..
 LIBS += -lpcap -pthread
 DESTDIR = $${PWD}/../bin
 
+CONFIG(debug, debug|release) DEFINES *= _DEBUG
+CONFIG(release, debug|release) DEFINES *= _RELEASE
+
 HEADERS += \
 	gbeaconhdr.h \
 	gcommon.h \

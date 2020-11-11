@@ -85,7 +85,7 @@ void Ssg::_scanThread(Ssg* ssg) {
 }
 
 void Ssg::scanThread() {
-	GTRACE("scanThread beg %s %s\n", __DATE__, __TIME__);
+	GTRACE("scanThread beg\n");
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* handle = pcap_open_live(interface_.c_str(), 11000, 1, 1, errbuf);
 	if (handle == nullptr) {

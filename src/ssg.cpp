@@ -135,6 +135,11 @@ int main(int argc, char* argv[]) {
 	if (!param.parse(argc, argv))
 		return 0;
 
+#ifdef _DEBUG
+	GTRACE("ssg Debug %s %s\n", __DATE__, __TIME__);
+#else // _RELEASE
+	GTRACE("ssg Release %s %s\n", __DATE__, __TIME__);
+#endif
 	std::signal(SIGINT, signalHandler);
 	std::signal(SIGINT, signalHandler);
 	std::signal(SIGILL, signalHandler);
