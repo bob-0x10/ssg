@@ -66,7 +66,25 @@ gtrace_t _gtrace = {
 void gtrace(const char* fmt, ...) {
 	if (!_gtrace.status.configured) {
 		_gtrace.status.configured = true;
-		gtrace_open("127.0.0.1", 8908, true, NULL);
+		bool file_load = false;
+		FILE* fp = fopen("gtrace.conf", "r");
+		if (fp != NULL) {
+			char ip[BUFSIZ];
+			int port;
+			int so;
+			char file[BUFSIZ];
+			int res = fscanf(fp, "%s %d %d %s", ip, &port, &so, file);
+			if (res >=2 && res <= 4) {
+				switch (res) {
+					case 2: gtrace_open(ip, port, false, NULL); break;
+					case 3: gtrace_open(ip, port, (bool)so, NULL); break;
+					case 4: gtrace_open(ip, port, (bool)so, file); break;
+				}
+				file_load = true;
+			}
+		}
+		if (!file_load)
+			gtrace_open("127.0.0.1", 8908, true, NULL);
 	}
 
 	if (!_gtrace.status.active)
@@ -83,8 +101,8 @@ void gtrace(const char* fmt, ...) {
 	gettimeofday(&now, NULL);
 	local = localtime(&now.tv_sec);
 	res = snprintf(p, remn, "%02d%02d%02d %02d%02d%02d-%03lu ",
-	(local->tm_year) % 100, local->tm_mon + 1, local->tm_mday,
-	local->tm_hour, local->tm_min, local->tm_sec, now.tv_usec / 1000);
+	   (local->tm_year) % 100, local->tm_mon + 1, local->tm_mday,
+	   local->tm_hour, local->tm_min, local->tm_sec, now.tv_usec / 1000);
 	if (res < 0) return;
 	p += res; len += res; remn -= res;	
 
