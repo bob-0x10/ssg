@@ -1,4 +1,4 @@
-Station Signature Generator
+Station Signal Generator
 ===
 
 ## How to use ssg in process level
