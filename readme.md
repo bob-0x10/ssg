@@ -23,3 +23,7 @@ ssg.open();
 ```cpp
 ssg.close();
 ```
+
+
+## Notice
+* Before using ssg, wireless apdater must be monitor mode and synchronize AP channel.
