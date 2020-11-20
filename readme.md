@@ -26,4 +26,4 @@ ssg.close();
 
 
 ## Notice
-* Before using ssg, wireless apdater must be monitor mode and synchronize AP channel.
+* Before using ssg, wireless apdater must be monitor mode and set it's channel into AP channel.
